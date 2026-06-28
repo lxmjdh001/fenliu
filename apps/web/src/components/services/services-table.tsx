@@ -70,7 +70,12 @@ const columns: ColumnDef<ServiceRow>[] = [
   {
     accessorKey: "accessRule",
     header: "规则",
-    cell: ({ row }) => accessRuleLabels[row.original.accessRule],
+    cell: ({ row }) => (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span>{accessRuleLabels[row.original.accessRule]}</span>
+        {row.original.lockIP ? <Badge variant="outline">IP 锁定</Badge> : null}
+      </div>
+    ),
   },
   {
     accessorKey: "targets",

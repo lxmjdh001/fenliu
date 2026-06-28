@@ -175,7 +175,8 @@ Worker 只负责生成访问事件并投递 Queue，不等待数据库写入。
 - 删除 / 暂停 / 恢复服务
 - 分流账号管理
 - 平台选择：WhatsApp / Telegram / Line
-- 分流规则：随机 / 顺序 / IP 锁定
+- 分流规则：随机 / 顺序
+- IP 锁定独立开关
 - 批量问候语
 - 自动去重
 - 拦截配置
@@ -485,6 +486,8 @@ index = localCounter++ % targets.length
 如未来需要严格顺序，可考虑 Durable Objects，但会增加延迟和复杂度。
 
 ### 9.3 IP 锁定
+
+IP 锁定不是分流规则的一种，而是独立开关。
 
 逻辑：
 
@@ -813,7 +816,8 @@ name
 short_code
 domain_id
 status
-access_rule: random | sequence | ip_lock
+access_rule: random | sequence
+lock_ip
 ip_lock_group_id
 greeting_mode: none | single | batch
 global_greeting
@@ -1599,4 +1603,3 @@ KV 发布成功：
   https://developers.cloudflare.com/queues/platform/limits/
 - Cloudflare for SaaS / Custom Hostnames：可将客户自有域名作为 custom hostname 接入 SaaS zone。  
   https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/domain-support/
-

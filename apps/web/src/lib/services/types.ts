@@ -1,7 +1,7 @@
 export type ServiceStatus = "enabled" | "paused" | "expired";
 export type PublishStatus = "success" | "pending" | "failed";
 export type Platform = "whatsapp" | "telegram" | "line";
-export type AccessRule = "random" | "sequence" | "ip_lock";
+export type AccessRule = "random" | "sequence";
 
 export interface ServiceTarget {
   id: string;
@@ -34,6 +34,7 @@ export interface ServiceRecord {
   domain: string;
   status: ServiceStatus;
   accessRule: AccessRule;
+  lockIP: boolean;
   ipLockGroupId: string;
   greetingMode: "none" | "single" | "batch";
   globalGreeting: string;
@@ -57,6 +58,7 @@ export interface ServiceRow {
   shortCode: string;
   domain: string;
   accessRule: AccessRule;
+  lockIP: boolean;
   targets: number;
   todayPv: number;
   todayUv: number;
@@ -70,6 +72,7 @@ export interface CreateServiceInput {
   platform: Platform;
   domain: string;
   accessRule: AccessRule;
+  lockIP?: boolean;
   greeting?: string;
   targets: Array<{
     remark?: string;

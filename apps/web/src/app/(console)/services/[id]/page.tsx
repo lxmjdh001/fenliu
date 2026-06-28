@@ -95,6 +95,7 @@ export default async function ServiceDetailPage({
           <CardContent className="grid gap-4 md:grid-cols-2">
             <Info label="平台" value={platformLabels[record.platform]} />
             <Info label="分流规则" value={accessRuleLabels[record.accessRule]} />
+            <Info label="IP 锁定" value={record.lockIP ? "开启" : "关闭"} />
             <Info label="域名" value={record.domain} />
             <Info label="短码" value={record.shortCode} />
             <Info label="会员到期" value={new Date(record.membershipExpiresAt).toLocaleString("zh-CN")} />

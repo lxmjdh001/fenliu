@@ -5,7 +5,7 @@ export interface Env {
 }
 
 type Platform = "whatsapp" | "telegram" | "line";
-type AccessRule = "random" | "sequence" | "ip_lock";
+type AccessRule = "random" | "sequence";
 type BlockAction = "not_found" | "redirect";
 
 interface RouteSnapshot {
@@ -172,15 +172,15 @@ async function selectTarget(
   targets: ServiceTarget[],
   ipAddress: string,
 ) {
+  if (service.lockIP) {
+    const hash = await stableHash(`${ipAddress || "unknown"}:${service.ipLockGroupId}`);
+    return targets[hash % targets.length];
+  }
+
   if (service.accessRule === "sequence") {
     const current = sequenceCounters.get(service.shortCode) ?? 0;
     sequenceCounters.set(service.shortCode, current + 1);
     return targets[current % targets.length];
-  }
-
-  if (service.accessRule === "ip_lock" || service.lockIP) {
-    const hash = await stableHash(`${ipAddress}:${service.ipLockGroupId}`);
-    return targets[hash % targets.length];
   }
 
   return targets[Math.floor(Math.random() * targets.length)];

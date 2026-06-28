@@ -19,5 +19,4 @@ export const platformLabels: Record<Platform, string> = {
 export const accessRuleLabels: Record<AccessRule, string> = {
   random: "随机",
   sequence: "顺序",
-  ip_lock: "IP 锁定",
 };

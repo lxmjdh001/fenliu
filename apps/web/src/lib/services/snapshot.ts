@@ -20,7 +20,7 @@ export function buildServiceSnapshot(service: ServiceRecord) {
     membershipExpiresAt: service.membershipExpiresAt,
     redirectType: "account",
     accessRule: service.accessRule,
-    lockIP: service.accessRule === "ip_lock",
+    lockIP: service.lockIP,
     ipLockGroupId: service.ipLockGroupId,
     greetingMode: service.greetingMode,
     globalGreeting: service.globalGreeting,

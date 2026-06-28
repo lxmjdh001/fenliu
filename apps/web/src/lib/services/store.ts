@@ -9,7 +9,8 @@ export const createServiceSchema = z.object({
   name: z.string().trim().min(2, "请输入服务名称").max(80, "服务名称最多 80 个字符"),
   platform: z.enum(["whatsapp", "telegram", "line"]),
   domain: z.string().trim().min(3, "请选择或输入域名").max(120, "域名过长"),
-  accessRule: z.enum(["random", "sequence", "ip_lock"]),
+  accessRule: z.enum(["random", "sequence"]),
+  lockIP: z.boolean().optional().default(false),
   greeting: z.string().trim().max(500, "问候语最多 500 个字符").optional(),
   targets: z
     .array(
@@ -29,7 +30,8 @@ const initialServices: ServiceRecord[] = [
     platform: "whatsapp",
     shortCode: "wa8de2",
     domain: "go.example.com",
-    accessRule: "ip_lock",
+    accessRule: "random",
+    lockIP: true,
     targets: ["60123456789", "60199887766", "491522334455"],
     todayPv: 3842,
     todayUv: 1244,
@@ -42,6 +44,7 @@ const initialServices: ServiceRecord[] = [
     shortCode: "tg9vip",
     domain: "mp.customer.com",
     accessRule: "random",
+    lockIP: false,
     targets: ["@sales_a", "@sales_b", "https://t.me/sales_c"],
     todayPv: 2210,
     todayUv: 876,
@@ -54,6 +57,7 @@ const initialServices: ServiceRecord[] = [
     shortCode: "lnjp33",
     domain: "go.example.com",
     accessRule: "sequence",
+    lockIP: false,
     targets: ["@line_a", "@line_b"],
     todayPv: 1197,
     todayUv: 423,
@@ -67,6 +71,7 @@ const initialServices: ServiceRecord[] = [
     shortCode: "waus77",
     domain: "wa.example.com",
     accessRule: "random",
+    lockIP: false,
     targets: ["14155552671", "14155552672"],
     todayPv: 428,
     todayUv: 189,
@@ -114,6 +119,7 @@ export function createService(input: CreateServiceInput) {
     domain: parsed.domain,
     status: "enabled",
     accessRule: parsed.accessRule,
+    lockIP: parsed.lockIP,
     ipLockGroupId: `group_${id}`,
     greetingMode: parsed.greeting ? "single" : "none",
     globalGreeting: parsed.greeting ?? "",
@@ -177,6 +183,7 @@ export function toServiceRow(service: ServiceRecord): ServiceRow {
     shortCode: service.shortCode,
     domain: service.domain,
     accessRule: service.accessRule,
+    lockIP: service.lockIP,
     targets: service.targets.filter((target) => target.enabled).length,
     todayPv: service.todayPv,
     todayUv: service.todayUv,
@@ -195,6 +202,7 @@ function seedService(
     | "shortCode"
     | "domain"
     | "accessRule"
+    | "lockIP"
     | "todayPv"
     | "todayUv"
     | "publishStatus"

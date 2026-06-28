@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -24,7 +25,8 @@ const serviceSchema = z.object({
   name: z.string().min(2, "请输入服务名称"),
   platform: z.enum(["whatsapp", "telegram", "line"]),
   domain: z.string().min(3, "请选择或输入域名"),
-  accessRule: z.enum(["random", "sequence", "ip_lock"]),
+  accessRule: z.enum(["random", "sequence"]),
+  lockIP: z.boolean(),
   greeting: z.string().optional(),
   targets: z
     .array(
@@ -47,6 +49,7 @@ export function ServiceForm() {
       platform: "whatsapp",
       domain: "go.example.com",
       accessRule: "random",
+      lockIP: false,
       greeting: "",
       targets: [{ remark: "客服A", url: "" }],
     },
@@ -117,9 +120,27 @@ export function ServiceForm() {
                   >
                     <option value="random">随机</option>
                     <option value="sequence">顺序</option>
-                    <option value="ip_lock">IP 锁定</option>
                   </select>
                 </Field>
+                <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+                  <div>
+                    <Label htmlFor="lock-ip">IP 锁定</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      开启后，同一 IP 会固定访问同一个客服号。
+                    </p>
+                  </div>
+                  <Controller
+                    control={form.control}
+                    name="lockIP"
+                    render={({ field }) => (
+                      <Switch
+                        id="lock-ip"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
+                  />
+                </div>
                 <Field label="全局问候语" className="md:col-span-2">
                   <Textarea
                     placeholder="WhatsApp 可自动拼接 text 参数；多条问候语后续会支持按行随机。"
@@ -184,7 +205,9 @@ export function ServiceForm() {
                 </div>
                 <div className="rounded-lg border p-4">
                   <div className="text-sm font-medium">IP 锁定</div>
-                  <p className="mt-2 text-sm text-muted-foreground">同一 IP 固定分到同一客服。</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    独立开关；开启后会覆盖随机或顺序，保证同一 IP 固定分到同一客服。
+                  </p>
                 </div>
               </CardContent>
             </Card>
