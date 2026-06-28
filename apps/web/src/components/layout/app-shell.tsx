@@ -19,6 +19,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import type { CurrentUser } from "@/lib/auth/current-user";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -31,12 +32,19 @@ const navItems = [
 
 const adminItems = [
   { href: "/admin/users", label: "用户管理", icon: Users },
-  { href: "/admin/cloudflare", label: "CF 状态", icon: Cloud },
+  { href: "/admin/cloudflare", label: "CF 配置", icon: Cloud },
   { href: "/admin/security", label: "拦截策略", icon: ShieldCheck },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  currentUser,
+}: {
+  children: React.ReactNode;
+  currentUser: CurrentUser;
+}) {
   const pathname = usePathname();
+  const canSeeAdmin = currentUser.role === "admin";
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,9 +60,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3">
           <NavSection items={navItems} pathname={pathname} />
-          <Separator className="my-4" />
-          <div className="mb-2 px-3 text-xs font-medium text-muted-foreground">管理员</div>
-          <NavSection items={adminItems} pathname={pathname} />
+          {canSeeAdmin ? (
+            <>
+              <Separator className="my-4" />
+              <div className="mb-2 px-3 text-xs font-medium text-muted-foreground">管理员</div>
+              <NavSection items={adminItems} pathname={pathname} />
+            </>
+          ) : null}
         </div>
         <div className="border-t p-4">
           <div className="rounded-lg bg-accent p-3">
@@ -77,7 +89,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Button>
             <div>
               <div className="text-sm font-semibold">极速分流控制台</div>
-              <div className="text-xs text-muted-foreground">WhatsApp / Telegram / Line</div>
+              <div className="text-xs text-muted-foreground">
+                {currentUser.name} · {currentUser.role === "admin" ? "管理员" : "用户"}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">

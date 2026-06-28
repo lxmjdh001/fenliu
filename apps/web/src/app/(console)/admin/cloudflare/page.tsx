@@ -1,11 +1,20 @@
-import { PlaceholderPage } from "@/components/layout/placeholder-page";
+import { CloudflareSettingsForm } from "@/components/admin/cloudflare-settings-form";
+import { getCloudflareSettings, publicCloudflareSettings } from "@/lib/cloudflare/settings";
 
-export default function AdminCloudflarePage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminCloudflarePage() {
+  const settings = await getCloudflareSettings();
+
   return (
-    <PlaceholderPage
-      title="CF 状态"
-      description="检测 KV、Queue、Worker、Custom Hostnames 和发布日志。"
-      items={["KV 发布日志", "Queue 积压监控", "Worker 版本", "Custom Hostname pending"]}
-    />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-normal">Cloudflare 配置</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          仅管理员可见。配置 API Token、账号、KV、Queue 和 Worker，用于后续发布服务快照。
+        </p>
+      </div>
+      <CloudflareSettingsForm initialSettings={publicCloudflareSettings(settings)} />
+    </div>
   );
 }
