@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { accessRuleLabels, platformLabels, whatsAppEntryLabels } from "@/lib/mock-data";
 import { getService, toServiceRow } from "@/lib/services/store";
 
@@ -22,7 +23,8 @@ export default async function ServiceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const record = getService(id);
+  const user = await getCurrentUser();
+  const record = await getService(id, user);
 
   if (!record) {
     return (

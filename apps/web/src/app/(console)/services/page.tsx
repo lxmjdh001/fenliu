@@ -1,10 +1,12 @@
 import { ServicesTable } from "@/components/services/services-table";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { listServiceRows } from "@/lib/services/store";
 
 export const dynamic = "force-dynamic";
 
-export default function ServicesPage() {
-  const services = listServiceRows();
+export default async function ServicesPage() {
+  const user = await getCurrentUser();
+  const services = await listServiceRows(user);
 
   return (
     <div className="space-y-6">

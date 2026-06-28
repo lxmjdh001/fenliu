@@ -1,9 +1,23 @@
 import "server-only";
 
+import type { Prisma, Service, ServiceTarget } from "@prisma/client";
 import { z } from "zod";
 
+import type { CurrentUser } from "@/lib/auth/types";
+import { prisma } from "@/lib/db/prisma";
+
 import { normalizeTarget } from "./platform-normalize";
-import type { CreateServiceInput, ServiceRecord, ServiceRow } from "./types";
+import type {
+  AccessRule,
+  CreateServiceInput,
+  EdgeBlockConfig,
+  Platform,
+  PublishStatus,
+  ServiceRecord,
+  ServiceRow,
+  ServiceStatus,
+  WhatsAppEntry,
+} from "./types";
 
 export const createServiceSchema = z.object({
   name: z.string().trim().min(2, "请输入服务名称").max(80, "服务名称最多 80 个字符"),
@@ -28,162 +42,174 @@ export const createServiceSchema = z.object({
     .max(5000, "单个服务最多添加 5000 个账号"),
 });
 
-const initialServices: ServiceRecord[] = [
-  seedService({
-    id: "10001",
-    name: "德国 WhatsApp 客服组",
-    platform: "whatsapp",
-    shortCode: "wa8de2",
-    domain: "go.example.com",
-    accessRule: "random",
-    whatsappEntry: "wa_me",
-    lockIP: true,
-    targets: ["60123456789", "60199887766", "491522334455"],
-    todayPv: 3842,
-    todayUv: 1244,
-    publishStatus: "success",
-  }),
-  seedService({
-    id: "10002",
-    name: "Telegram 私域接待",
-    platform: "telegram",
-    shortCode: "tg9vip",
-    domain: "mp.customer.com",
-    accessRule: "random",
-    whatsappEntry: "wa_me",
-    lockIP: false,
-    targets: ["@sales_a", "@sales_b", "https://t.me/sales_c"],
-    todayPv: 2210,
-    todayUv: 876,
-    publishStatus: "pending",
-  }),
-  seedService({
-    id: "10003",
-    name: "Line 日本渠道",
-    platform: "line",
-    shortCode: "lnjp33",
-    domain: "go.example.com",
-    accessRule: "sequence",
-    whatsappEntry: "wa_me",
-    lockIP: false,
-    targets: ["@line_a", "@line_b"],
-    todayPv: 1197,
-    todayUv: 423,
-    status: "paused",
-    publishStatus: "success",
-  }),
-  seedService({
-    id: "10004",
-    name: "WhatsApp 北美广告",
-    platform: "whatsapp",
-    shortCode: "waus77",
-    domain: "wa.example.com",
-    accessRule: "random",
-    whatsappEntry: "api_send",
-    lockIP: false,
-    targets: ["14155552671", "14155552672"],
-    todayPv: 428,
-    todayUv: 189,
-    status: "expired",
-    publishStatus: "failed",
-    publishError: "Cloudflare KV namespace 未配置",
-  }),
-];
-
-const globalStore = globalThis as typeof globalThis & {
-  __fenliuServices?: ServiceRecord[];
-  __fenliuNextServiceId?: number;
+const defaultEdgeBlock: EdgeBlockConfig = {
+  blockAllEnabled: false,
+  countryAllowEnabled: false,
+  allowedCountries: [],
+  countryBlockEnabled: false,
+  blockedCountries: [],
+  blockChinese: false,
+  ipBlockListIds: [],
+  action: "not_found",
+  redirectUrl: "",
 };
 
-if (!globalStore.__fenliuServices) {
-  globalStore.__fenliuServices = initialServices;
-  globalStore.__fenliuNextServiceId = 10005;
+type ServiceWithTargets = Service & {
+  targets: ServiceTarget[];
+};
+
+export async function listServices(user?: CurrentUser | null) {
+  const services = await prisma.service.findMany({
+    where: user && user.role !== "admin" ? { userId: user.id } : undefined,
+    include: {
+      targets: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return services.map(toServiceRecord);
 }
 
-export function listServices() {
-  return [...globalStore.__fenliuServices!].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+export async function listServiceRows(user?: CurrentUser | null): Promise<ServiceRow[]> {
+  const services = await listServices(user);
+
+  return services.map(toServiceRow);
 }
 
-export function listServiceRows(): ServiceRow[] {
-  return listServices().map(toServiceRow);
+export async function getService(id: string, user?: CurrentUser | null) {
+  const numericId = Number(id);
+
+  if (!Number.isInteger(numericId)) {
+    return null;
+  }
+
+  const service = await prisma.service.findFirst({
+    where: {
+      id: numericId,
+      ...(user && user.role !== "admin" ? { userId: user.id } : {}),
+    },
+    include: {
+      targets: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+
+  return service ? toServiceRecord(service) : null;
 }
 
-export function getService(id: string) {
-  return globalStore.__fenliuServices!.find((service) => service.id === id) ?? null;
-}
-
-export function createService(input: CreateServiceInput) {
+export async function createService(input: CreateServiceInput, user: CurrentUser) {
   const parsed = createServiceSchema.parse(input);
-  const now = new Date().toISOString();
-  const id = String(globalStore.__fenliuNextServiceId!++);
-  const shortCode = generateShortCode(parsed.platform);
   const normalizedTargets = dedupeTargets(parsed);
   const globalGreeting = parsed.platform === "whatsapp" ? (parsed.greeting ?? "") : "";
+  const membershipExpiresAt = user.membershipExpiresAt ? new Date(user.membershipExpiresAt) : null;
+  const shortCode = await generateUniqueShortCode(parsed.platform);
 
-  const service: ServiceRecord = {
-    id,
-    userId: 20001,
-    name: parsed.name,
-    platform: parsed.platform,
-    shortCode,
-    domain: parsed.domain,
-    status: "enabled",
-    accessRule: parsed.accessRule,
-    whatsappEntry: parsed.whatsappEntry,
-    lockIP: parsed.lockIP,
-    ipLockGroupId: `group_${id}`,
-    greetingMode: globalGreeting ? "single" : "none",
-    globalGreeting,
-    greetingPool: [],
-    targets: normalizedTargets.map((target, index) => ({
-      id: `${id}_${index + 1}`,
-      targetKey: `target_${index + 1}`,
-      url: target.url,
-      normalizedUrl: target.normalizedUrl,
-      remark: target.remark || `客服${index + 1}`,
-      greeting: "",
-      enabled: true,
-    })),
-    edgeBlock: {
-      blockAllEnabled: false,
-      countryAllowEnabled: false,
-      allowedCountries: [],
-      countryBlockEnabled: false,
-      blockedCountries: [],
-      blockChinese: false,
-      ipBlockListIds: [],
-      action: "not_found",
-      redirectUrl: "",
-    },
-    publishStatus: "pending",
-    publishError: "",
-    publishedAt: "",
-    membershipExpiresAt: "2026-12-31T23:59:59.000Z",
-    todayPv: 0,
-    todayUv: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const service = await prisma.$transaction(async (tx) => {
+    const created = await tx.service.create({
+      data: {
+        userId: user.id,
+        name: parsed.name,
+        platform: parsed.platform,
+        shortCode,
+        domain: parsed.domain,
+        status: "enabled",
+        accessRule: parsed.accessRule,
+        whatsappEntry: parsed.whatsappEntry,
+        lockIP: parsed.lockIP,
+        ipLockGroupId: `group_${shortCode}`,
+        greetingMode: globalGreeting ? "single" : "none",
+        globalGreeting,
+        greetingPool: [],
+        edgeBlock: defaultEdgeBlock as unknown as Prisma.InputJsonValue,
+        publishStatus: "pending",
+        membershipExpiresAt,
+        targets: {
+          createMany: {
+            data: normalizedTargets.map((target, index) => ({
+              targetKey: `target_${index + 1}`,
+              url: target.url,
+              normalizedUrl: target.normalizedUrl,
+              remark: target.remark || `客服${index + 1}`,
+              greeting: "",
+              enabled: true,
+              sortOrder: index + 1,
+            })),
+          },
+        },
+      },
+    });
 
-  globalStore.__fenliuServices!.unshift(service);
+    await tx.service.update({
+      where: { id: created.id },
+      data: {
+        ipLockGroupId: `group_${created.id}`,
+      },
+    });
 
-  return service;
+    return tx.service.findUniqueOrThrow({
+      where: { id: created.id },
+      include: {
+        targets: {
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+  });
+
+  return toServiceRecord(service);
 }
 
-export function markPublished(id: string) {
-  const service = getService(id);
+export async function markPublished(id: string, snapshots?: { route: unknown; service: unknown }) {
+  const numericId = Number(id);
+
+  if (!Number.isInteger(numericId)) {
+    return null;
+  }
+
+  const service = await prisma.service.findUnique({
+    where: { id: numericId },
+  });
 
   if (!service) {
     return null;
   }
 
-  const now = new Date().toISOString();
-  service.publishStatus = "success";
-  service.publishError = "";
-  service.publishedAt = now;
-  service.updatedAt = now;
+  const now = new Date();
+  const updated = await prisma.$transaction(async (tx) => {
+    const next = await tx.service.update({
+      where: { id: numericId },
+      data: {
+        publishStatus: "success",
+        publishError: "",
+        publishedAt: now,
+      },
+      include: {
+        targets: {
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
 
-  return service;
+    if (snapshots) {
+      await tx.publishSnapshot.create({
+        data: {
+          serviceId: numericId,
+          routeKey: `route:${service.shortCode}`,
+          serviceKey: `service:${service.platform}:${service.shortCode}`,
+          routeSnapshotJson: snapshots.route as Prisma.InputJsonValue,
+          serviceSnapshotJson: snapshots.service as Prisma.InputJsonValue,
+          status: "success",
+        },
+      });
+    }
+
+    return next;
+  });
+
+  return toServiceRecord(updated);
 }
 
 export function toServiceRow(service: ServiceRecord): ServiceRow {
@@ -205,60 +231,40 @@ export function toServiceRow(service: ServiceRecord): ServiceRow {
   };
 }
 
-function seedService(
-  input: Pick<
-    ServiceRecord,
-    | "id"
-    | "name"
-    | "platform"
-    | "shortCode"
-    | "domain"
-    | "accessRule"
-    | "whatsappEntry"
-    | "lockIP"
-    | "todayPv"
-    | "todayUv"
-    | "publishStatus"
-  > &
-    Partial<Pick<ServiceRecord, "status" | "publishError">> & {
-      targets: string[];
-    },
-): ServiceRecord {
-  const now = new Date("2026-06-28T01:30:00.000Z").toISOString();
-
+function toServiceRecord(service: ServiceWithTargets): ServiceRecord {
   return {
-    ...input,
-    userId: 20001,
-    status: input.status ?? "enabled",
-    ipLockGroupId: `group_${input.id}`,
-    greetingMode: "single",
-    globalGreeting: "hello",
-    greetingPool: [],
-    targets: input.targets.map((target, index) => ({
-      id: `${input.id}_${index + 1}`,
-      targetKey: `target_${index + 1}`,
-      url: target,
-      normalizedUrl: normalizeTarget(input.platform, target),
-      remark: `客服${index + 1}`,
-      greeting: "",
-      enabled: true,
+    id: String(service.id),
+    userId: service.userId,
+    name: service.name,
+    platform: service.platform as Platform,
+    shortCode: service.shortCode,
+    domain: service.domain,
+    status: service.status as ServiceStatus,
+    accessRule: service.accessRule as AccessRule,
+    whatsappEntry: service.whatsappEntry as WhatsAppEntry,
+    lockIP: service.lockIP,
+    ipLockGroupId: service.ipLockGroupId,
+    greetingMode: service.greetingMode,
+    globalGreeting: service.globalGreeting,
+    greetingPool: parseStringArray(service.greetingPool),
+    targets: service.targets.map((target) => ({
+      id: String(target.id),
+      targetKey: target.targetKey,
+      url: target.url,
+      normalizedUrl: target.normalizedUrl,
+      remark: target.remark,
+      greeting: target.greeting,
+      enabled: target.enabled,
     })),
-    edgeBlock: {
-      blockAllEnabled: false,
-      countryAllowEnabled: false,
-      allowedCountries: [],
-      countryBlockEnabled: false,
-      blockedCountries: [],
-      blockChinese: false,
-      ipBlockListIds: [],
-      action: "not_found",
-      redirectUrl: "",
-    },
-    publishError: input.publishError ?? "",
-    publishedAt: input.publishStatus === "success" ? now : "",
-    membershipExpiresAt: "2026-12-31T23:59:59.000Z",
-    createdAt: now,
-    updatedAt: now,
+    edgeBlock: parseEdgeBlock(service.edgeBlock),
+    publishStatus: service.publishStatus as PublishStatus,
+    publishError: service.publishError,
+    publishedAt: service.publishedAt?.toISOString() ?? "",
+    membershipExpiresAt: service.membershipExpiresAt?.toISOString() ?? "",
+    todayPv: service.todayPv,
+    todayUv: service.todayUv,
+    createdAt: service.createdAt.toISOString(),
+    updatedAt: service.updatedAt.toISOString(),
   };
 }
 
@@ -281,10 +287,42 @@ function dedupeTargets(input: z.infer<typeof createServiceSchema>) {
   return [...unique.values()];
 }
 
-function generateShortCode(platform: ServiceRecord["platform"]) {
+async function generateUniqueShortCode(platform: Platform) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const shortCode = generateShortCode(platform);
+    const existing = await prisma.service.findUnique({
+      where: { shortCode },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return shortCode;
+    }
+  }
+
+  throw new Error("短码生成失败，请重试");
+}
+
+function generateShortCode(platform: Platform) {
   const prefix = platform === "whatsapp" ? "wa" : platform === "telegram" ? "tg" : "ln";
   const random = Math.random().toString(36).slice(2, 7);
+
   return `${prefix}${random}`;
+}
+
+function parseStringArray(value: Prisma.JsonValue) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function parseEdgeBlock(value: Prisma.JsonValue): EdgeBlockConfig {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return defaultEdgeBlock;
+  }
+
+  return {
+    ...defaultEdgeBlock,
+    ...(value as Partial<EdgeBlockConfig>),
+  };
 }
 
 function formatDateTime(value: string) {

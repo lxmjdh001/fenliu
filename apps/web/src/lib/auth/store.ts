@@ -1,9 +1,10 @@
 import "server-only";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
+import type { User } from "@prisma/client";
+
+import { prisma } from "@/lib/db/prisma";
 
 import { hashPassword, verifyPassword } from "./password";
 import type { CurrentUser, MembershipLevel, SessionRecord, UserRecord, UserRole, UserStatus } from "./types";
@@ -29,73 +30,61 @@ export const updateUserSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 
-interface UsersFile {
-  nextId: number;
-  users: UserRecord[];
-}
-
-interface SessionsFile {
-  sessions: SessionRecord[];
-}
-
 export async function ensureAuthSeed() {
-  const usersFile = await readUsersFile();
+  const existing = await prisma.user.findUnique({
+    where: { email: "admin@fenliu.local" },
+    select: { id: true },
+  });
 
-  if (usersFile.users.length) {
+  if (existing) {
     return;
   }
 
-  const now = new Date().toISOString();
-  usersFile.users.push({
-    id: 1,
-    email: "admin@fenliu.local",
-    name: "管理员",
-    passwordHash: await hashPassword("admin123456"),
-    role: "admin",
-    membershipLevel: "vip",
-    membershipExpiresAt: "2099-12-31T23:59:59.000Z",
-    status: "active",
-    createdAt: now,
-    updatedAt: now,
+  await prisma.user.create({
+    data: {
+      email: "admin@fenliu.local",
+      name: "管理员",
+      passwordHash: await hashPassword("admin123456"),
+      role: "admin",
+      membershipLevel: "vip",
+      membershipExpiresAt: new Date("2099-12-31T23:59:59.000Z"),
+      status: "active",
+    },
   });
-  usersFile.nextId = 2;
-
-  await writeUsersFile(usersFile);
 }
 
 export async function registerUser(input: RegisterInput) {
   const parsed = registerSchema.parse(input);
-  const usersFile = await readUsersFile();
   const email = parsed.email.toLowerCase();
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
 
-  if (usersFile.users.some((user) => user.email.toLowerCase() === email)) {
+  if (existing) {
     throw new Error("邮箱已注册");
   }
 
-  const now = new Date().toISOString();
-  const user: UserRecord = {
-    id: usersFile.nextId++,
-    email,
-    name: parsed.name,
-    passwordHash: await hashPassword(parsed.password),
-    role: "member",
-    membershipLevel: "free",
-    membershipExpiresAt: "",
-    status: "active",
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  usersFile.users.push(user);
-  await writeUsersFile(usersFile);
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name: parsed.name,
+      passwordHash: await hashPassword(parsed.password),
+      role: "member",
+      membershipLevel: "free",
+      membershipExpiresAt: null,
+      status: "active",
+    },
+  });
 
   return toCurrentUser(user);
 }
 
 export async function loginUser(input: LoginInput) {
   const parsed = loginSchema.parse(input);
-  const usersFile = await readUsersFile();
-  const user = usersFile.users.find((item) => item.email.toLowerCase() === parsed.email.toLowerCase());
+  const user = await prisma.user.findUnique({
+    where: { email: parsed.email.toLowerCase() },
+  });
 
   if (!user || !(await verifyPassword(parsed.password, user.passwordHash))) {
     throw new Error("邮箱或密码错误");
@@ -113,24 +102,32 @@ export async function loginUser(input: LoginInput) {
   };
 }
 
-export async function createSession(userId: number) {
-  const sessionsFile = await readSessionsFile();
+export async function createSession(userId: number): Promise<SessionRecord> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30);
-  const session: SessionRecord = {
-    token: randomBytes(32).toString("hex"),
-    userId,
-    createdAt: now.toISOString(),
-    expiresAt: expiresAt.toISOString(),
+
+  await prisma.session.deleteMany({
+    where: {
+      expiresAt: {
+        lt: now,
+      },
+    },
+  });
+
+  const session = await prisma.session.create({
+    data: {
+      token: randomBytes(32).toString("hex"),
+      userId,
+      expiresAt,
+    },
+  });
+
+  return {
+    token: session.token,
+    userId: session.userId,
+    createdAt: session.createdAt.toISOString(),
+    expiresAt: session.expiresAt.toISOString(),
   };
-
-  sessionsFile.sessions = [
-    ...sessionsFile.sessions.filter((item) => Date.parse(item.expiresAt) > Date.now()),
-    session,
-  ];
-  await writeSessionsFile(sessionsFile);
-
-  return session;
 }
 
 export async function getUserBySessionToken(token?: string) {
@@ -138,21 +135,16 @@ export async function getUserBySessionToken(token?: string) {
     return null;
   }
 
-  const sessionsFile = await readSessionsFile();
-  const session = sessionsFile.sessions.find((item) => item.token === token);
+  const session = await prisma.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
 
-  if (!session || Date.parse(session.expiresAt) < Date.now()) {
+  if (!session || session.expiresAt.getTime() < Date.now() || session.user.status !== "active") {
     return null;
   }
 
-  const usersFile = await readUsersFile();
-  const user = usersFile.users.find((item) => item.id === session.userId);
-
-  if (!user || user.status !== "active") {
-    return null;
-  }
-
-  return toCurrentUser(user);
+  return toCurrentUser(session.user);
 }
 
 export async function deleteSession(token?: string) {
@@ -160,110 +152,71 @@ export async function deleteSession(token?: string) {
     return;
   }
 
-  const sessionsFile = await readSessionsFile();
-  sessionsFile.sessions = sessionsFile.sessions.filter((item) => item.token !== token);
-  await writeSessionsFile(sessionsFile);
+  await prisma.session.deleteMany({
+    where: { token },
+  });
 }
 
 export async function listUsers() {
   await ensureAuthSeed();
-  const usersFile = await readUsersFile();
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: "desc" },
+  });
 
-  return usersFile.users
-    .map((user) => sanitizeUser(user))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return users.map(sanitizeUser);
 }
 
 export async function updateUser(id: number, input: z.infer<typeof updateUserSchema>) {
   const parsed = updateUserSchema.parse(input);
-  const usersFile = await readUsersFile();
-  const user = usersFile.users.find((item) => item.id === id);
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true },
+  });
 
   if (!user) {
     throw new Error("用户不存在");
   }
 
-  if (parsed.role) user.role = parsed.role as UserRole;
-  if (parsed.membershipLevel) user.membershipLevel = parsed.membershipLevel as MembershipLevel;
-  if (typeof parsed.membershipExpiresAt === "string") user.membershipExpiresAt = parsed.membershipExpiresAt;
-  if (parsed.status) user.status = parsed.status as UserStatus;
-  user.updatedAt = new Date().toISOString();
+  const updated = await prisma.user.update({
+    where: { id },
+    data: {
+      role: parsed.role,
+      membershipLevel: parsed.membershipLevel,
+      membershipExpiresAt:
+        typeof parsed.membershipExpiresAt === "string" && parsed.membershipExpiresAt
+          ? new Date(parsed.membershipExpiresAt)
+          : typeof parsed.membershipExpiresAt === "string"
+            ? null
+            : undefined,
+      status: parsed.status,
+    },
+  });
 
-  await writeUsersFile(usersFile);
-
-  return sanitizeUser(user);
+  return sanitizeUser(updated);
 }
 
-export function toCurrentUser(user: UserRecord): CurrentUser {
+export function toCurrentUser(user: User): CurrentUser {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role,
-    membershipLevel: user.membershipLevel,
-    membershipExpiresAt: user.membershipExpiresAt,
-    status: user.status,
+    role: user.role as UserRole,
+    membershipLevel: user.membershipLevel as MembershipLevel,
+    membershipExpiresAt: user.membershipExpiresAt?.toISOString() ?? "",
+    status: user.status as UserStatus,
   };
 }
 
-function sanitizeUser(user: UserRecord) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { passwordHash, ...safeUser } = user;
-  return safeUser;
-}
-
-async function readUsersFile(): Promise<UsersFile> {
-  await mkdir(dataDir(), { recursive: true });
-
-  try {
-    const raw = await readFile(usersPath(), "utf8");
-    const parsed = JSON.parse(raw) as UsersFile;
-    return {
-      nextId: parsed.nextId || 1,
-      users: parsed.users || [],
-    };
-  } catch {
-    return {
-      nextId: 1,
-      users: [],
-    };
-  }
-}
-
-async function writeUsersFile(data: UsersFile) {
-  await mkdir(dirname(usersPath()), { recursive: true });
-  await writeFile(usersPath(), `${JSON.stringify(data, null, 2)}\n`, "utf8");
-}
-
-async function readSessionsFile(): Promise<SessionsFile> {
-  await mkdir(dataDir(), { recursive: true });
-
-  try {
-    const raw = await readFile(sessionsPath(), "utf8");
-    const parsed = JSON.parse(raw) as SessionsFile;
-    return {
-      sessions: parsed.sessions || [],
-    };
-  } catch {
-    return {
-      sessions: [],
-    };
-  }
-}
-
-async function writeSessionsFile(data: SessionsFile) {
-  await mkdir(dirname(sessionsPath()), { recursive: true });
-  await writeFile(sessionsPath(), `${JSON.stringify(data, null, 2)}\n`, "utf8");
-}
-
-function dataDir() {
-  return process.env.FENLIU_DATA_DIR ?? join(process.cwd(), ".data");
-}
-
-function usersPath() {
-  return join(dataDir(), "users.json");
-}
-
-function sessionsPath() {
-  return join(dataDir(), "sessions.json");
+function sanitizeUser(user: User): Omit<UserRecord, "passwordHash"> {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as UserRole,
+    membershipLevel: user.membershipLevel as MembershipLevel,
+    membershipExpiresAt: user.membershipExpiresAt?.toISOString() ?? "",
+    status: user.status as UserStatus,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  };
 }

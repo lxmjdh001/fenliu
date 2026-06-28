@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { listServiceRows } from "@/lib/services/store";
 
 export const dynamic = "force-dynamic";
@@ -58,8 +59,9 @@ const publishSteps = [
   { title: "Worker 边缘跳转", status: "骨架就绪", icon: ShieldCheck },
 ];
 
-export default function DashboardPage() {
-  const services = listServiceRows();
+export default async function DashboardPage() {
+  const user = await getCurrentUser();
+  const services = await listServiceRows(user);
 
   return (
     <div className="space-y-6">

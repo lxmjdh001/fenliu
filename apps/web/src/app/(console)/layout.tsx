@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { redirect } from "next/navigation";
 import { Toaster } from "sonner";
 
+export const dynamic = "force-dynamic";
+
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
   const currentUser = await getCurrentUser();
 

@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { requireUser } from "@/lib/auth/current-user";
 import { createService, createServiceSchema, listServiceRows } from "@/lib/services/store";
 
 export async function GET() {
+  const user = await requireUser();
+
   return NextResponse.json({
-    data: listServiceRows(),
+    data: await listServiceRows(user),
   });
 }
 
 export async function POST(request: Request) {
   try {
+    const user = await requireUser();
     const body = await request.json();
     const input = createServiceSchema.parse(body);
-    const service = createService(input);
+    const service = await createService(input, user);
 
     return NextResponse.json(
       {
