@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save } from "lucide-react";
+import { ArrowRight, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -34,9 +35,11 @@ const serviceSchema = z.object({
 });
 
 type ServiceFormValues = z.infer<typeof serviceSchema>;
+type Step = "basic" | "targets" | "rules";
 
 export function ServiceForm() {
   const router = useRouter();
+  const [currentStep, setCurrentStep] = useState<Step>("basic");
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
@@ -54,6 +57,39 @@ export function ServiceForm() {
     control: form.control,
     name: "accessRule",
   });
+  const isFinalStep = currentStep === "rules";
+
+  async function goNext() {
+    if (currentStep === "basic") {
+      const isValid = await form.trigger(["name", "platform", "greeting"]);
+
+      if (!isValid) {
+        return;
+      }
+
+      setCurrentStep("targets");
+      return;
+    }
+
+    const targets = parseBatchTargets(form.getValues("batchTargets"));
+
+    if (!targets.length) {
+      form.setError("batchTargets", {
+        message: "请输入至少一个账号",
+      });
+      return;
+    }
+
+    if (targets.length > maxTargets) {
+      form.setError("batchTargets", {
+        message: `最多输入 ${maxTargets} 条账号`,
+      });
+      return;
+    }
+
+    form.clearErrors("batchTargets");
+    setCurrentStep("rules");
+  }
 
   async function onSubmit(values: ServiceFormValues) {
     const targets = parseBatchTargets(values.batchTargets);
@@ -93,7 +129,7 @@ export function ServiceForm() {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <Tabs defaultValue="basic">
+        <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as Step)}>
           <TabsList>
             <TabsTrigger value="basic">基础设置</TabsTrigger>
             <TabsTrigger value="targets">账号列表</TabsTrigger>
@@ -198,10 +234,17 @@ export function ServiceForm() {
           <Button type="button" variant="outline">
             保存草稿
           </Button>
-          <Button type="submit">
-            <Save className="size-4" />
-            {form.formState.isSubmitting ? "保存中" : "保存并发布"}
-          </Button>
+          {isFinalStep ? (
+            <Button type="submit">
+              <Save className="size-4" />
+              {form.formState.isSubmitting ? "保存中" : "保存并发布"}
+            </Button>
+          ) : (
+            <Button type="button" onClick={goNext}>
+              下一步
+              <ArrowRight className="size-4" />
+            </Button>
+          )}
         </div>
     </form>
   );
