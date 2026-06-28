@@ -21,8 +21,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import type { Platform } from "@/lib/services/types";
 
 const maxTargets = 5000;
+const platformOptions: Array<{ value: Platform; label: string }> = [
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "telegram", label: "Telegram" },
+  { value: "line", label: "Line" },
+];
 
 const serviceSchema = z.object({
   name: z.string().min(2, "请输入服务名称"),
@@ -161,14 +167,16 @@ export function ServiceForm() {
                   <Input placeholder="例如：德国 WhatsApp 客服组" {...form.register("name")} />
                 </Field>
                 <Field label="平台">
-                  <select
-                    className="h-9 w-full rounded-md border bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    {...form.register("platform")}
-                  >
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="telegram">Telegram</option>
-                    <option value="line">Line</option>
-                  </select>
+                  <PlatformTabs
+                    value={selectedPlatform}
+                    onChange={(value) =>
+                      form.setValue("platform", value, {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  />
                 </Field>
                 {selectedPlatform === "whatsapp" ? (
                   <Field label="全局问候语" className="md:col-span-2">
@@ -319,6 +327,26 @@ function RuleOption({
       </div>
       <p className="mt-2 text-sm text-muted-foreground">{description}</p>
     </button>
+  );
+}
+
+function PlatformTabs({
+  value,
+  onChange,
+}: {
+  value: Platform;
+  onChange: (value: Platform) => void;
+}) {
+  return (
+    <Tabs value={value} onValueChange={(nextValue) => onChange(nextValue as Platform)}>
+      <TabsList className="grid h-10 w-full grid-cols-3">
+        {platformOptions.map((option) => (
+          <TabsTrigger key={option.value} value={option.value} className="h-8">
+            {option.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }
 
