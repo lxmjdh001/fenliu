@@ -11,7 +11,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Edit3, ExternalLink, MoreHorizontal, Search, Trash2 } from "lucide-react";
+import { Edit3, ExternalLink, MoreHorizontal, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -80,12 +80,7 @@ const columns: ColumnDef<ServiceRow>[] = [
   {
     accessorKey: "accessRule",
     header: "规则",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span>{accessRuleLabels[row.original.accessRule]}</span>
-        {row.original.lockIP ? <Badge variant="outline">IP 锁定</Badge> : null}
-      </div>
-    ),
+    cell: ({ row }) => accessRuleLabels[row.original.accessRule],
   },
   {
     accessorKey: "targets",
@@ -93,19 +88,14 @@ const columns: ColumnDef<ServiceRow>[] = [
     cell: ({ row }) => `${row.original.targets} 个`,
   },
   {
-    accessorKey: "todayPv",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="-ml-2"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        今日 PV
-        <ArrowUpDown className="size-3.5" />
-      </Button>
-    ),
-    cell: ({ row }) => row.original.todayPv.toLocaleString(),
+    accessorKey: "lockIP",
+    header: "IP 锁定",
+    cell: ({ row }) =>
+      row.original.lockIP ? (
+        <Badge variant="success">已锁定</Badge>
+      ) : (
+        <Badge variant="secondary">未锁定</Badge>
+      ),
   },
   {
     accessorKey: "todayUv",
