@@ -33,6 +33,7 @@ const navItems = [
 
 const adminItems = [
   { href: "/admin/users", label: "用户管理", icon: Users },
+  { href: "/admin/routing-domains", label: "分流域名", icon: Globe2 },
   { href: "/admin/cloudflare", label: "CF 配置", icon: Cloud },
   { href: "/admin/security", label: "拦截策略", icon: ShieldCheck },
 ];

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { listRoutingDomains } from "@/lib/domains/store";
 import { accessRuleLabels, platformLabels, whatsAppEntryLabels } from "@/lib/mock-data";
 import { getService, toServiceRow } from "@/lib/services/store";
 
@@ -25,6 +26,7 @@ export default async function ServiceDetailPage({
   const { id } = await params;
   const user = await getCurrentUser();
   const record = await getService(id, user);
+  const routingDomains = await listRoutingDomains({ enabledOnly: true });
 
   if (!record) {
     return (
@@ -110,11 +112,11 @@ export default async function ServiceDetailPage({
         <PublishPanel
           serviceId={record.id}
           shortCode={record.shortCode}
-          domain={record.domain}
           platform={record.platform}
           publishStatus={record.publishStatus}
           publishError={record.publishError}
           publishedAt={record.publishedAt}
+          routingDomains={routingDomains}
         />
       </div>
 

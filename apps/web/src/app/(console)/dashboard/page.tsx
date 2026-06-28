@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { listRoutingDomains } from "@/lib/domains/store";
 import { listServiceRows } from "@/lib/services/store";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ const publishSteps = [
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   const services = await listServiceRows(user);
+  const routingDomains = await listRoutingDomains({ enabledOnly: true });
 
   return (
     <div className="space-y-6">
@@ -150,7 +152,7 @@ export default async function DashboardPage() {
             <Link href="/services">查看全部</Link>
           </Button>
         </div>
-        <ServicesTable data={services.slice(0, 3)} />
+        <ServicesTable data={services.slice(0, 3)} routingDomains={routingDomains} />
       </section>
     </div>
   );

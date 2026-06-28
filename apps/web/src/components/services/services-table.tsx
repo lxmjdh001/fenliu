@@ -40,6 +40,15 @@ import {
 } from "@/lib/mock-data";
 import type { Platform, ServiceRow } from "@/lib/services/types";
 
+interface RoutingDomainOption {
+  id: number;
+  domain: string;
+  label: string;
+  type: "public" | "customer";
+  enabled: boolean;
+  isDefault: boolean;
+}
+
 const statusLabel = {
   enabled: "运行中",
   paused: "已暂停",
@@ -133,11 +142,26 @@ const columns: ColumnDef<ServiceRow>[] = [
   {
     id: "actions",
     header: "",
-    cell: ({ row }) => <ServiceActions service={row.original} />,
+    cell: ({ row, table }) => (
+      <ServiceActions
+        service={row.original}
+        routingDomains={(table.options.meta as ServicesTableMeta | undefined)?.routingDomains ?? []}
+      />
+    ),
   },
 ];
 
-export function ServicesTable({ data }: { data: ServiceRow[] }) {
+interface ServicesTableMeta {
+  routingDomains: RoutingDomainOption[];
+}
+
+export function ServicesTable({
+  data,
+  routingDomains,
+}: {
+  data: ServiceRow[];
+  routingDomains: RoutingDomainOption[];
+}) {
   // TanStack Table returns stable table helpers that React Compiler currently warns about.
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -146,6 +170,9 @@ export function ServicesTable({ data }: { data: ServiceRow[] }) {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: {
+      routingDomains,
+    } satisfies ServicesTableMeta,
   });
   const currentPlatform = (table.getColumn("platform")?.getFilterValue() as Platform | undefined) ?? "all";
   const platformCounts = data.reduce<Record<"all" | Platform, number>>(
@@ -237,10 +264,19 @@ export function ServicesTable({ data }: { data: ServiceRow[] }) {
   );
 }
 
-function ServiceActions({ service }: { service: ServiceRow }) {
+function ServiceActions({
+  service,
+  routingDomains,
+}: {
+  service: ServiceRow;
+  routingDomains: RoutingDomainOption[];
+}) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
-  const copyDomains = getCopyDomains(service);
+  const copyDomains = routingDomains.map((item) => ({
+    label: item.label || (item.type === "customer" ? "客户域名" : "公共域名"),
+    domain: item.domain,
+  }));
 
   async function copyServiceLink(domain: string) {
     const link = `https://${domain}/v/${service.shortCode}`;
@@ -294,15 +330,19 @@ function ServiceActions({ service }: { service: ServiceRow }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">
-          {copyDomains.map((item) => (
-            <DropdownMenuItem key={item.domain} onClick={() => copyServiceLink(item.domain)}>
-              <Copy className="size-4" />
-              <div>
-                <div>{item.label}</div>
-                <div className="text-xs text-muted-foreground">{item.domain}</div>
-              </div>
-            </DropdownMenuItem>
-          ))}
+          {copyDomains.length ? (
+            copyDomains.map((item) => (
+              <DropdownMenuItem key={item.domain} onClick={() => copyServiceLink(item.domain)}>
+                <Copy className="size-4" />
+                <div>
+                  <div>{item.label}</div>
+                  <div className="text-xs text-muted-foreground">{item.domain}</div>
+                </div>
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <DropdownMenuItem disabled>请先在后台配置分流域名</DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <DropdownMenu>
@@ -332,22 +372,4 @@ function ServiceActions({ service }: { service: ServiceRow }) {
       </DropdownMenu>
     </div>
   );
-}
-
-function getCopyDomains(service: ServiceRow) {
-  const domains = new Map<string, { label: string; domain: string }>();
-
-  domains.set("colud.chuhai7.com", {
-    label: "公共开发域名",
-    domain: "colud.chuhai7.com",
-  });
-
-  if (service.domain && service.domain !== "go.example.com") {
-    domains.set(service.domain, {
-      label: "服务当前域名",
-      domain: service.domain,
-    });
-  }
-
-  return [...domains.values()];
 }

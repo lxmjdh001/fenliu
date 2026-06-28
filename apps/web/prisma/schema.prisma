@@ -223,3 +223,18 @@ model PublishSnapshot {
   @@index([createdAt])
   @@map("publish_snapshots")
 }
+
+model RoutingDomain {
+  id        Int      @id @default(autoincrement())
+  domain    String   @unique
+  label     String   @default("")
+  type      String   @default("public")
+  enabled   Boolean  @default(true)
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled])
+  @@index([isDefault])
+  @@map("routing_domains")
+}

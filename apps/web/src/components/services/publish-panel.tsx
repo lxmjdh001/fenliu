@@ -14,6 +14,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { PublishStatus } from "@/lib/services/types";
 
 const publishLabel: Record<PublishStatus, string> = {
@@ -25,24 +31,23 @@ const publishLabel: Record<PublishStatus, string> = {
 export function PublishPanel({
   serviceId,
   shortCode,
-  domain,
   platform,
   publishStatus,
   publishError,
   publishedAt,
+  routingDomains,
 }: {
   serviceId: string;
   shortCode: string;
-  domain: string;
   platform: string;
   publishStatus: PublishStatus;
   publishError: string;
   publishedAt: string;
+  routingDomains: Array<{ domain: string; label: string; type: "public" | "customer" }>;
 }) {
   const router = useRouter();
   const [isPublishing, setIsPublishing] = useState(false);
-  const [isLinkVisible, setIsLinkVisible] = useState(false);
-  const visitLink = `https://${domain}/v/${shortCode}`;
+  const [visibleLink, setVisibleLink] = useState("");
 
   async function publish() {
     setIsPublishing(true);
@@ -65,8 +70,9 @@ export function PublishPanel({
     }
   }
 
-  async function copyVisitLink() {
-    setIsLinkVisible(true);
+  async function copyVisitLink(domain: string) {
+    const visitLink = `https://${domain}/v/${shortCode}`;
+    setVisibleLink(visitLink);
 
     try {
       await navigator.clipboard.writeText(visitLink);
@@ -109,10 +115,10 @@ export function PublishPanel({
         ) : null}
         {publishError ? <p className="text-xs text-destructive">{publishError}</p> : null}
 
-        {isLinkVisible ? (
+        {visibleLink ? (
           <div className="rounded-lg border p-3">
             <div className="text-xs text-muted-foreground">访问链接</div>
-            <div className="mt-1 break-all font-mono text-sm">{visitLink}</div>
+            <div className="mt-1 break-all font-mono text-sm">{visibleLink}</div>
           </div>
         ) : null}
 
@@ -121,10 +127,29 @@ export function PublishPanel({
             <CloudUpload className="size-4" />
             {isPublishing ? "发布中" : "模拟发布"}
           </Button>
-          <Button type="button" variant="outline" onClick={copyVisitLink}>
-            <Copy className="size-4" />
-            复制访问链接
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline">
+                <Copy className="size-4" />
+                复制访问链接
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-56">
+              {routingDomains.length ? (
+                routingDomains.map((item) => (
+                  <DropdownMenuItem key={item.domain} onClick={() => copyVisitLink(item.domain)}>
+                    <Copy className="size-4" />
+                    <div>
+                      <div>{item.label || (item.type === "customer" ? "客户域名" : "公共域名")}</div>
+                      <div className="text-xs text-muted-foreground">{item.domain}</div>
+                    </div>
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled>请先在后台配置分流域名</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" asChild>
             <a href={`/api/services/${serviceId}/snapshot`} target="_blank" rel="noreferrer">
               <FileJson className="size-4" />
