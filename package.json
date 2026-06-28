@@ -1,0 +1,13 @@
+{
+  "name": "fenliu",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web -- --hostname 0.0.0.0 --port 3001 --webpack",
+    "build": "npm run build -w apps/web",
+    "lint": "npm run lint -w apps/web"
+  }
+}
