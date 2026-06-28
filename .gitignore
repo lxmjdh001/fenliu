@@ -2,6 +2,7 @@
 ._*
 node_modules/
 .next/
+.wrangler/
 dist/
 *.tsbuildinfo
 .env*

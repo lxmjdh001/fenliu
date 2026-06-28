@@ -1,11 +1,12 @@
-name = "fenliu-router"
+name = "fenliu-router-dev"
 main = "src/index.ts"
 compatibility_date = "2026-06-28"
+workers_dev = true
 
 [[kv_namespaces]]
 binding = "ROUTE_KV"
-id = "replace-with-kv-namespace-id"
+id = "e1d6205e208b4467a9499ef8954dc393"
 
 [[queues.producers]]
 binding = "TRACK_QUEUE"
-queue = "fenliu_track_events"
+queue = "fenliu-track-events-dev"
