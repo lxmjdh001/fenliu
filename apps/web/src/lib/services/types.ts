@@ -2,6 +2,7 @@ export type ServiceStatus = "enabled" | "paused" | "expired";
 export type PublishStatus = "success" | "pending" | "failed";
 export type Platform = "whatsapp" | "telegram" | "line";
 export type AccessRule = "random" | "sequence";
+export type WhatsAppEntry = "wa_me" | "api_send";
 
 export interface ServiceTarget {
   id: string;
@@ -34,6 +35,7 @@ export interface ServiceRecord {
   domain: string;
   status: ServiceStatus;
   accessRule: AccessRule;
+  whatsappEntry: WhatsAppEntry;
   lockIP: boolean;
   ipLockGroupId: string;
   greetingMode: "none" | "single" | "batch";
@@ -58,6 +60,7 @@ export interface ServiceRow {
   shortCode: string;
   domain: string;
   accessRule: AccessRule;
+  whatsappEntry: WhatsAppEntry;
   lockIP: boolean;
   targets: number;
   todayPv: number;
@@ -72,6 +75,7 @@ export interface CreateServiceInput {
   platform: Platform;
   domain: string;
   accessRule: AccessRule;
+  whatsappEntry?: WhatsAppEntry;
   lockIP?: boolean;
   greeting?: string;
   targets: Array<{

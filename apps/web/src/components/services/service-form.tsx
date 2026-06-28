@@ -29,6 +29,7 @@ const serviceSchema = z.object({
   platform: z.enum(["whatsapp", "telegram", "line"]),
   domain: z.string().min(3, "请选择或输入域名"),
   accessRule: z.enum(["random", "sequence"]),
+  whatsappEntry: z.enum(["wa_me", "api_send"]),
   lockIP: z.boolean(),
   greeting: z.string().optional(),
   batchTargets: z.string().min(1, "请输入至少一个账号"),
@@ -47,6 +48,7 @@ export function ServiceForm() {
       platform: "whatsapp",
       domain: "go.example.com",
       accessRule: "random",
+      whatsappEntry: "wa_me",
       lockIP: false,
       greeting: "",
       batchTargets: "",
@@ -56,6 +58,14 @@ export function ServiceForm() {
   const selectedAccessRule = useWatch({
     control: form.control,
     name: "accessRule",
+  });
+  const selectedPlatform = useWatch({
+    control: form.control,
+    name: "platform",
+  });
+  const selectedWhatsAppEntry = useWatch({
+    control: form.control,
+    name: "whatsappEntry",
   });
   const isFinalStep = currentStep === "rules";
 
@@ -206,6 +216,29 @@ export function ServiceForm() {
                     onClick={() => form.setValue("accessRule", "sequence", { shouldDirty: true })}
                   />
                 </div>
+                {selectedPlatform === "whatsapp" ? (
+                  <div>
+                    <Label>WhatsApp 跳转入口</Label>
+                    <div className="mt-2 grid gap-4 md:grid-cols-2">
+                      <RuleOption
+                        title="wa.me"
+                        description="短链接入口，参数少，兼容常规 WhatsApp 跳转。"
+                        selected={selectedWhatsAppEntry === "wa_me"}
+                        onClick={() =>
+                          form.setValue("whatsappEntry", "wa_me", { shouldDirty: true })
+                        }
+                      />
+                      <RuleOption
+                        title="api.whatsapp.com"
+                        description="使用 /send 入口，自动拼接 phone、text、type 和 app_absent 参数。"
+                        selected={selectedWhatsAppEntry === "api_send"}
+                        onClick={() =>
+                          form.setValue("whatsappEntry", "api_send", { shouldDirty: true })
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
                   <div>
                     <Label htmlFor="lock-ip">IP 锁定</Label>

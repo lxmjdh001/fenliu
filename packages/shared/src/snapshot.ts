@@ -1,4 +1,4 @@
-import type { AccessRule, Platform } from "./platform";
+import type { AccessRule, Platform, WhatsAppEntry } from "./platform";
 
 export type EdgeBlockAction = "not_found" | "redirect";
 
@@ -40,6 +40,7 @@ export interface ServiceSnapshot {
   membershipExpiresAt: string;
   redirectType: string;
   accessRule: AccessRule;
+  whatsappEntry: WhatsAppEntry;
   lockIP: boolean;
   ipLockGroupId: string;
   greetingMode: "none" | "single" | "batch";

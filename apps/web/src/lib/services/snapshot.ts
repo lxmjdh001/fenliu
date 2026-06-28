@@ -20,6 +20,7 @@ export function buildServiceSnapshot(service: ServiceRecord) {
     membershipExpiresAt: service.membershipExpiresAt,
     redirectType: "account",
     accessRule: service.accessRule,
+    whatsappEntry: service.whatsappEntry,
     lockIP: service.lockIP,
     ipLockGroupId: service.ipLockGroupId,
     greetingMode: service.greetingMode,

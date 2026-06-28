@@ -1,4 +1,4 @@
-import type { AccessRule, Platform } from "@/lib/services/types";
+import type { AccessRule, Platform, WhatsAppEntry } from "@/lib/services/types";
 
 export const trafficTrend = [
   { date: "06-22", pv: 4200, uv: 1720 },
@@ -19,4 +19,9 @@ export const platformLabels: Record<Platform, string> = {
 export const accessRuleLabels: Record<AccessRule, string> = {
   random: "随机",
   sequence: "顺序",
+};
+
+export const whatsAppEntryLabels: Record<WhatsAppEntry, string> = {
+  wa_me: "wa.me",
+  api_send: "api.whatsapp.com",
 };

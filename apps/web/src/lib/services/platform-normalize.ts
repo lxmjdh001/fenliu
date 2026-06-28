@@ -30,7 +30,7 @@ function normalizeWhatsApp(input: string) {
       throw new Error("WhatsApp 链接只允许 wa.me 或 whatsapp.com");
     }
 
-    const phone = extractDigits(url.pathname);
+    const phone = extractDigits(url.searchParams.get("phone") || url.pathname);
 
     if (!phone) {
       throw new Error("WhatsApp 链接里没有可用手机号");

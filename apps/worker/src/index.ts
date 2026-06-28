@@ -6,6 +6,7 @@ export interface Env {
 
 type Platform = "whatsapp" | "telegram" | "line";
 type AccessRule = "random" | "sequence";
+type WhatsAppEntry = "wa_me" | "api_send";
 type BlockAction = "not_found" | "redirect";
 
 interface RouteSnapshot {
@@ -24,6 +25,7 @@ interface ServiceSnapshot {
   status: boolean;
   membershipExpiresAt: string;
   accessRule: AccessRule;
+  whatsappEntry?: WhatsAppEntry;
   lockIP: boolean;
   ipLockGroupId: string;
   greetingMode: "none" | "single" | "batch";
@@ -197,16 +199,15 @@ function buildRedirectUrl(service: ServiceSnapshot, target: ServiceTarget) {
         url.searchParams.set("text", greeting);
       }
 
+      if (isWhatsAppApiSendUrl(url)) {
+        url.searchParams.set("type", url.searchParams.get("type") || "business_profile");
+        url.searchParams.set("app_absent", url.searchParams.get("app_absent") || "0");
+      }
+
       return url.toString();
     }
 
-    const url = new URL(`https://wa.me/${target.url.replace(/^\+/, "")}`);
-
-    if (greeting) {
-      url.searchParams.set("text", greeting);
-    }
-
-    return url.toString();
+    return buildWhatsAppUrl(target.url, greeting, service.whatsappEntry ?? "wa_me");
   }
 
   if (service.platform === "telegram") {
@@ -234,6 +235,35 @@ function pickGreeting(service: ServiceSnapshot) {
   }
 
   return "";
+}
+
+function buildWhatsAppUrl(phoneInput: string, greeting: string, entry: WhatsAppEntry) {
+  const phone = phoneInput.replace(/\D/g, "");
+
+  if (entry === "api_send") {
+    const url = new URL("https://api.whatsapp.com/send/");
+    url.searchParams.set("phone", phone);
+
+    if (greeting) {
+      url.searchParams.set("text", greeting);
+    }
+
+    url.searchParams.set("type", "business_profile");
+    url.searchParams.set("app_absent", "0");
+    return url.toString();
+  }
+
+  const url = new URL(`https://wa.me/${phone}`);
+
+  if (greeting) {
+    url.searchParams.set("text", greeting);
+  }
+
+  return url.toString();
+}
+
+function isWhatsAppApiSendUrl(url: URL) {
+  return url.hostname.toLowerCase() === "api.whatsapp.com" && url.pathname.startsWith("/send");
 }
 
 async function buildVisitEvent(

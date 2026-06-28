@@ -10,6 +10,7 @@ export const createServiceSchema = z.object({
   platform: z.enum(["whatsapp", "telegram", "line"]),
   domain: z.string().trim().min(3, "请选择或输入域名").max(120, "域名过长"),
   accessRule: z.enum(["random", "sequence"]),
+  whatsappEntry: z.enum(["wa_me", "api_send"]).optional().default("wa_me"),
   lockIP: z.boolean().optional().default(false),
   greeting: z.string().trim().max(500, "问候语最多 500 个字符").optional(),
   targets: z
@@ -35,6 +36,7 @@ const initialServices: ServiceRecord[] = [
     shortCode: "wa8de2",
     domain: "go.example.com",
     accessRule: "random",
+    whatsappEntry: "wa_me",
     lockIP: true,
     targets: ["60123456789", "60199887766", "491522334455"],
     todayPv: 3842,
@@ -48,6 +50,7 @@ const initialServices: ServiceRecord[] = [
     shortCode: "tg9vip",
     domain: "mp.customer.com",
     accessRule: "random",
+    whatsappEntry: "wa_me",
     lockIP: false,
     targets: ["@sales_a", "@sales_b", "https://t.me/sales_c"],
     todayPv: 2210,
@@ -61,6 +64,7 @@ const initialServices: ServiceRecord[] = [
     shortCode: "lnjp33",
     domain: "go.example.com",
     accessRule: "sequence",
+    whatsappEntry: "wa_me",
     lockIP: false,
     targets: ["@line_a", "@line_b"],
     todayPv: 1197,
@@ -75,6 +79,7 @@ const initialServices: ServiceRecord[] = [
     shortCode: "waus77",
     domain: "wa.example.com",
     accessRule: "random",
+    whatsappEntry: "api_send",
     lockIP: false,
     targets: ["14155552671", "14155552672"],
     todayPv: 428,
@@ -123,6 +128,7 @@ export function createService(input: CreateServiceInput) {
     domain: parsed.domain,
     status: "enabled",
     accessRule: parsed.accessRule,
+    whatsappEntry: parsed.whatsappEntry,
     lockIP: parsed.lockIP,
     ipLockGroupId: `group_${id}`,
     greetingMode: parsed.greeting ? "single" : "none",
@@ -187,6 +193,7 @@ export function toServiceRow(service: ServiceRecord): ServiceRow {
     shortCode: service.shortCode,
     domain: service.domain,
     accessRule: service.accessRule,
+    whatsappEntry: service.whatsappEntry,
     lockIP: service.lockIP,
     targets: service.targets.filter((target) => target.enabled).length,
     todayPv: service.todayPv,
@@ -206,6 +213,7 @@ function seedService(
     | "shortCode"
     | "domain"
     | "accessRule"
+    | "whatsappEntry"
     | "lockIP"
     | "todayPv"
     | "todayUv"

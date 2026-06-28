@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { accessRuleLabels, platformLabels } from "@/lib/mock-data";
+import { accessRuleLabels, platformLabels, whatsAppEntryLabels } from "@/lib/mock-data";
 import { getService, toServiceRow } from "@/lib/services/store";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +93,9 @@ export default async function ServiceDetailPage({
           <CardContent className="grid gap-4 md:grid-cols-2">
             <Info label="平台" value={platformLabels[record.platform]} />
             <Info label="分流规则" value={accessRuleLabels[record.accessRule]} />
+            {record.platform === "whatsapp" ? (
+              <Info label="WhatsApp 入口" value={whatsAppEntryLabels[record.whatsappEntry]} />
+            ) : null}
             <Info label="IP 锁定" value={record.lockIP ? "开启" : "关闭"} />
             <Info label="短码" value={record.shortCode} />
             <Info label="会员到期" value={new Date(record.membershipExpiresAt).toLocaleString("zh-CN")} />
