@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Save, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -60,6 +60,10 @@ export function ServiceForm() {
   const { fields, append, replace } = useFieldArray({
     control: form.control,
     name: "targets",
+  });
+  const selectedAccessRule = useWatch({
+    control: form.control,
+    name: "accessRule",
   });
 
   function handleBatchImport() {
@@ -137,34 +141,6 @@ export function ServiceForm() {
                 <Field label="域名" error={form.formState.errors.domain?.message}>
                   <Input placeholder="go.example.com" {...form.register("domain")} />
                 </Field>
-                <Field label="分流规则">
-                  <select
-                    className="h-9 w-full rounded-md border bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    {...form.register("accessRule")}
-                  >
-                    <option value="random">随机</option>
-                    <option value="sequence">顺序</option>
-                  </select>
-                </Field>
-                <div className="flex items-center justify-between gap-4 rounded-md border p-3">
-                  <div>
-                    <Label htmlFor="lock-ip">IP 锁定</Label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      开启后，同一 IP 会固定访问同一个客服号。
-                    </p>
-                  </div>
-                  <Controller
-                    control={form.control}
-                    name="lockIP"
-                    render={({ field }) => (
-                      <Switch
-                        id="lock-ip"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    )}
-                  />
-                </div>
                 <Field label="全局问候语" className="md:col-span-2">
                   <Textarea
                     placeholder="WhatsApp 可自动拼接 text 参数；多条问候语后续会支持按行随机。"
@@ -229,23 +205,42 @@ export function ServiceForm() {
           <TabsContent value="rules">
             <Card>
               <CardHeader>
-                <CardTitle>分流与拦截</CardTitle>
-                <CardDescription>国家、中文浏览器和 IP 黑名单会在下一步接入。</CardDescription>
+                <CardTitle>分流规则</CardTitle>
+                <CardDescription>设置账号分配方式；拦截策略会在下一步接入。</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-lg border p-4">
-                  <div className="text-sm font-medium">随机</div>
-                  <p className="mt-2 text-sm text-muted-foreground">最高性能，适合大多数分流场景。</p>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <RuleOption
+                    title="随机"
+                    description="最高性能，适合大多数分流场景。"
+                    selected={selectedAccessRule === "random"}
+                    onClick={() => form.setValue("accessRule", "random", { shouldDirty: true })}
+                  />
+                  <RuleOption
+                    title="顺序"
+                    description="边缘近似顺序，不保证全球严格轮询。"
+                    selected={selectedAccessRule === "sequence"}
+                    onClick={() => form.setValue("accessRule", "sequence", { shouldDirty: true })}
+                  />
                 </div>
-                <div className="rounded-lg border p-4">
-                  <div className="text-sm font-medium">顺序</div>
-                  <p className="mt-2 text-sm text-muted-foreground">边缘近似顺序，不保证全球严格轮询。</p>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <div className="text-sm font-medium">IP 锁定</div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    独立开关；开启后会覆盖随机或顺序，保证同一 IP 固定分到同一客服。
-                  </p>
+                <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                  <div>
+                    <Label htmlFor="lock-ip">IP 锁定</Label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      独立开关；开启后会覆盖随机或顺序，保证同一 IP 固定分到同一客服。
+                    </p>
+                  </div>
+                  <Controller
+                    control={form.control}
+                    name="lockIP"
+                    render={({ field }) => (
+                      <Switch
+                        id="lock-ip"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -262,6 +257,40 @@ export function ServiceForm() {
           </Button>
         </div>
     </form>
+  );
+}
+
+function RuleOption({
+  title,
+  description,
+  selected,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={
+        "rounded-lg border p-4 text-left transition-colors hover:border-primary " +
+        (selected ? "border-primary bg-accent" : "bg-white")
+      }
+      onClick={onClick}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-medium">{title}</div>
+        <span
+          className={
+            "size-3 rounded-full border " +
+            (selected ? "border-primary bg-primary" : "border-muted-foreground/40")
+          }
+        />
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+    </button>
   );
 }
 
