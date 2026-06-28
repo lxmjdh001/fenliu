@@ -11,7 +11,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Edit3, ExternalLink, MoreHorizontal, Search, Trash2 } from "lucide-react";
+import { Copy, Edit3, Eye, MoreHorizontal, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -240,6 +240,18 @@ export function ServicesTable({ data }: { data: ServiceRow[] }) {
 function ServiceActions({ service }: { service: ServiceRow }) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
+  const copyDomains = getCopyDomains(service);
+
+  async function copyServiceLink(domain: string) {
+    const link = `https://${domain}/v/${service.shortCode}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("访问链接已复制。");
+    } catch {
+      toast.error("复制失败，请手动复制访问链接。");
+    }
+  }
 
   async function deleteCurrentService() {
     const confirmed = window.confirm(`确定删除「${service.name}」吗？删除后不可恢复。`);
@@ -270,11 +282,29 @@ function ServiceActions({ service }: { service: ServiceRow }) {
 
   return (
     <div className="flex justify-end gap-1">
-      <Button variant="ghost" size="icon" aria-label="查看服务" asChild>
+      <Button variant="ghost" size="icon" aria-label="查看详情" asChild>
         <Link href={`/services/${service.id}`}>
-          <ExternalLink className="size-4" />
+          <Eye className="size-4" />
         </Link>
       </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label={`${service.name} 复制链接`}>
+            <Copy className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-56">
+          {copyDomains.map((item) => (
+            <DropdownMenuItem key={item.domain} onClick={() => copyServiceLink(item.domain)}>
+              <Copy className="size-4" />
+              <div>
+                <div>{item.label}</div>
+                <div className="text-xs text-muted-foreground">{item.domain}</div>
+              </div>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -302,4 +332,22 @@ function ServiceActions({ service }: { service: ServiceRow }) {
       </DropdownMenu>
     </div>
   );
+}
+
+function getCopyDomains(service: ServiceRow) {
+  const domains = new Map<string, { label: string; domain: string }>();
+
+  domains.set("colud.chuhai7.com", {
+    label: "公共开发域名",
+    domain: "colud.chuhai7.com",
+  });
+
+  if (service.domain && service.domain !== "go.example.com") {
+    domains.set(service.domain, {
+      label: "服务当前域名",
+      domain: service.domain,
+    });
+  }
+
+  return [...domains.values()];
 }
