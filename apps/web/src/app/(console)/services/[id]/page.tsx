@@ -56,9 +56,7 @@ export default async function ServiceDetailPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">{service.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            https://{service.domain}/v/{service.shortCode}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">短码：/{service.shortCode}</p>
         </div>
         <Badge variant="success">已发布</Badge>
       </div>
@@ -96,7 +94,6 @@ export default async function ServiceDetailPage({
             <Info label="平台" value={platformLabels[record.platform]} />
             <Info label="分流规则" value={accessRuleLabels[record.accessRule]} />
             <Info label="IP 锁定" value={record.lockIP ? "开启" : "关闭"} />
-            <Info label="域名" value={record.domain} />
             <Info label="短码" value={record.shortCode} />
             <Info label="会员到期" value={new Date(record.membershipExpiresAt).toLocaleString("zh-CN")} />
             <Info label="问候语" value={record.globalGreeting || "未设置"} />
@@ -106,6 +103,7 @@ export default async function ServiceDetailPage({
         <PublishPanel
           serviceId={record.id}
           shortCode={record.shortCode}
+          domain={record.domain}
           platform={record.platform}
           publishStatus={record.publishStatus}
           publishError={record.publishError}

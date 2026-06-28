@@ -122,9 +122,10 @@ export function ServiceForm() {
             <Card>
               <CardHeader>
                 <CardTitle>基础设置</CardTitle>
-                <CardDescription>配置平台、域名和服务名称，保存后会生成短码。</CardDescription>
+                <CardDescription>配置平台和服务名称，保存后会生成短码。</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-5 md:grid-cols-2">
+                <input type="hidden" {...form.register("domain")} />
                 <Field label="服务名称" error={form.formState.errors.name?.message}>
                   <Input placeholder="例如：德国 WhatsApp 客服组" {...form.register("name")} />
                 </Field>
@@ -137,9 +138,6 @@ export function ServiceForm() {
                     <option value="telegram">Telegram</option>
                     <option value="line">Line</option>
                   </select>
-                </Field>
-                <Field label="域名" error={form.formState.errors.domain?.message}>
-                  <Input placeholder="go.example.com" {...form.register("domain")} />
                 </Field>
                 <Field label="全局问候语" className="md:col-span-2">
                   <Textarea

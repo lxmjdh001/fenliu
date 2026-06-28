@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CloudUpload, FileJson } from "lucide-react";
+import { CloudUpload, Copy, FileJson } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ const publishLabel: Record<PublishStatus, string> = {
 export function PublishPanel({
   serviceId,
   shortCode,
+  domain,
   platform,
   publishStatus,
   publishError,
@@ -32,6 +33,7 @@ export function PublishPanel({
 }: {
   serviceId: string;
   shortCode: string;
+  domain: string;
   platform: string;
   publishStatus: PublishStatus;
   publishError: string;
@@ -39,6 +41,8 @@ export function PublishPanel({
 }) {
   const router = useRouter();
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isLinkVisible, setIsLinkVisible] = useState(false);
+  const visitLink = `https://${domain}/v/${shortCode}`;
 
   async function publish() {
     setIsPublishing(true);
@@ -58,6 +62,17 @@ export function PublishPanel({
       router.refresh();
     } finally {
       setIsPublishing(false);
+    }
+  }
+
+  async function copyVisitLink() {
+    setIsLinkVisible(true);
+
+    try {
+      await navigator.clipboard.writeText(visitLink);
+      toast.success("访问链接已复制。");
+    } catch {
+      toast.error("复制失败，请手动复制访问链接。");
     }
   }
 
@@ -94,10 +109,21 @@ export function PublishPanel({
         ) : null}
         {publishError ? <p className="text-xs text-destructive">{publishError}</p> : null}
 
+        {isLinkVisible ? (
+          <div className="rounded-lg border p-3">
+            <div className="text-xs text-muted-foreground">访问链接</div>
+            <div className="mt-1 break-all font-mono text-sm">{visitLink}</div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap gap-2">
           <Button onClick={publish} disabled={isPublishing}>
             <CloudUpload className="size-4" />
             {isPublishing ? "发布中" : "模拟发布"}
+          </Button>
+          <Button type="button" variant="outline" onClick={copyVisitLink}>
+            <Copy className="size-4" />
+            复制访问链接
           </Button>
           <Button variant="outline" asChild>
             <a href={`/api/services/${serviceId}/snapshot`} target="_blank" rel="noreferrer">
