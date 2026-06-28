@@ -22,6 +22,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
+const maxTargets = 5000;
+
 const serviceSchema = z.object({
   name: z.string().min(2, "请输入服务名称"),
   platform: z.enum(["whatsapp", "telegram", "line"]),
@@ -36,7 +38,8 @@ const serviceSchema = z.object({
         url: z.string().min(2, "请输入账号或链接"),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(maxTargets),
 });
 
 type ServiceFormValues = z.infer<typeof serviceSchema>;
@@ -77,6 +80,14 @@ export function ServiceForm() {
     const currentTargets = form.getValues("targets");
     const shouldReplaceBlankDefault =
       currentTargets.length === 1 && !currentTargets[0]?.url.trim();
+    const nextTotal = shouldReplaceBlankDefault
+      ? imported.length
+      : currentTargets.length + imported.length;
+
+    if (nextTotal > maxTargets) {
+      toast.error(`最多输入 ${maxTargets} 条账号`);
+      return;
+    }
 
     if (shouldReplaceBlankDefault) {
       replace(imported);
@@ -170,7 +181,7 @@ export function ServiceForm() {
                   <Field label="批量输入">
                     <Textarea
                       className="min-h-28 bg-white"
-                      placeholder={"一行一个账号\n客服A,60123456789\n客服B @sales_b\nhttps://line.me/ti/p/example"}
+                      placeholder="一行一个，请输入手机号/链接，最多输入5000条。"
                       value={batchTargets}
                       onChange={(event) => setBatchTargets(event.target.value)}
                     />
@@ -297,53 +308,27 @@ function parseBatchTargets(input: string): Array<{ remark?: string; url: string 
   const seen = new Set<string>();
 
   for (const rawLine of input.split(/\r?\n/)) {
-    const line = rawLine.trim();
+    const line = normalizeBatchTarget(rawLine);
 
     if (!line) {
       continue;
     }
 
-    const parsed = parseBatchLine(line);
-
-    if (!parsed?.url) {
-      continue;
-    }
-
-    const key = parsed.url.toLowerCase();
+    const key = line.toLowerCase();
 
     if (seen.has(key)) {
       continue;
     }
 
     seen.add(key);
-    targets.push(parsed);
+    targets.push({ url: line });
   }
 
   return targets;
 }
 
-function parseBatchLine(line: string): { remark?: string; url: string } | null {
-  const delimited = line.split(/\t|,|，/).map((item) => item.trim()).filter(Boolean);
-
-  if (delimited.length >= 2) {
-    return {
-      remark: delimited.slice(0, -1).join(" "),
-      url: delimited[delimited.length - 1],
-    };
-  }
-
-  const parts = line.split(/\s+/).filter(Boolean);
-
-  if (parts.length === 1) {
-    return {
-      url: parts[0],
-    };
-  }
-
-  return {
-    remark: parts.slice(0, -1).join(" "),
-    url: parts[parts.length - 1],
-  };
+function normalizeBatchTarget(input: string) {
+  return input.trim().replace(/[\s()-]/g, "");
 }
 
 function Field({

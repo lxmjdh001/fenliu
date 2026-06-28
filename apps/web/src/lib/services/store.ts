@@ -16,11 +16,15 @@ export const createServiceSchema = z.object({
     .array(
       z.object({
         remark: z.string().trim().max(40, "备注最多 40 个字符").optional(),
-        url: z.string().trim().min(2, "请输入账号或链接").max(300, "账号或链接过长"),
+        url: z
+          .string()
+          .trim()
+          .transform((value) => value.replace(/[\s()-]/g, ""))
+          .pipe(z.string().min(2, "请输入账号或链接").max(300, "账号或链接过长")),
       }),
     )
     .min(1, "至少添加一个账号")
-    .max(100, "单个服务最多添加 100 个账号"),
+    .max(5000, "单个服务最多添加 5000 个账号"),
 });
 
 const initialServices: ServiceRecord[] = [
