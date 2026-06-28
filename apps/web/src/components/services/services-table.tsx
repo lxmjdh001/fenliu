@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   type ColumnDef,
   flexRender,
@@ -9,11 +11,19 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ExternalLink, MoreHorizontal, Search } from "lucide-react";
+import { ArrowUpDown, Edit3, ExternalLink, MoreHorizontal, Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -133,16 +143,7 @@ const columns: ColumnDef<ServiceRow>[] = [
   {
     id: "actions",
     header: "",
-    cell: ({ row }) => (
-      <div className="flex justify-end gap-1">
-        <Button variant="ghost" size="icon" aria-label="打开链接">
-          <ExternalLink className="size-4" />
-        </Button>
-        <Button variant="ghost" size="icon" aria-label={`${row.original.name} 更多操作`}>
-          <MoreHorizontal className="size-4" />
-        </Button>
-      </div>
-    ),
+    cell: ({ row }) => <ServiceActions service={row.original} />,
   },
 ];
 
@@ -243,5 +244,72 @@ export function ServicesTable({ data }: { data: ServiceRow[] }) {
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+function ServiceActions({ service }: { service: ServiceRow }) {
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function deleteCurrentService() {
+    const confirmed = window.confirm(`确定删除「${service.name}」吗？删除后不可恢复。`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/services/${service.id}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        toast.error(payload.message ?? "删除失败");
+        return;
+      }
+
+      toast.success("服务已删除。");
+      router.refresh();
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <div className="flex justify-end gap-1">
+      <Button variant="ghost" size="icon" aria-label="查看服务" asChild>
+        <Link href={`/services/${service.id}`}>
+          <ExternalLink className="size-4" />
+        </Link>
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`${service.name} 更多操作`}
+            disabled={isDeleting}
+          >
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link href={`/services/${service.id}/edit`}>
+              <Edit3 className="size-4" />
+              编辑
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={deleteCurrentService}>
+            <Trash2 className="size-4" />
+            删除
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

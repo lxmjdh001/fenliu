@@ -42,6 +42,8 @@ export const createServiceSchema = z.object({
     .max(5000, "单个服务最多添加 5000 个账号"),
 });
 
+export const updateServiceSchema = createServiceSchema;
+
 const defaultEdgeBlock: EdgeBlockConfig = {
   blockAllEnabled: false,
   countryAllowEnabled: false,
@@ -160,6 +162,104 @@ export async function createService(input: CreateServiceInput, user: CurrentUser
   });
 
   return toServiceRecord(service);
+}
+
+export async function updateService(id: string, input: CreateServiceInput, user: CurrentUser) {
+  const numericId = Number(id);
+
+  if (!Number.isInteger(numericId)) {
+    return null;
+  }
+
+  const existing = await prisma.service.findFirst({
+    where: {
+      id: numericId,
+      ...(user.role !== "admin" ? { userId: user.id } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    return null;
+  }
+
+  const parsed = updateServiceSchema.parse(input);
+  const normalizedTargets = dedupeTargets(parsed);
+  const globalGreeting = parsed.platform === "whatsapp" ? (parsed.greeting ?? "") : "";
+
+  const service = await prisma.$transaction(async (tx) => {
+    await tx.serviceTarget.deleteMany({
+      where: { serviceId: numericId },
+    });
+
+    await tx.service.update({
+      where: { id: numericId },
+      data: {
+        name: parsed.name,
+        platform: parsed.platform,
+        domain: parsed.domain,
+        accessRule: parsed.accessRule,
+        whatsappEntry: parsed.whatsappEntry,
+        lockIP: parsed.lockIP,
+        greetingMode: globalGreeting ? "single" : "none",
+        globalGreeting,
+        greetingPool: [],
+        publishStatus: "pending",
+        publishError: "",
+        publishedAt: null,
+        targets: {
+          createMany: {
+            data: normalizedTargets.map((target, index) => ({
+              targetKey: `target_${index + 1}`,
+              url: target.url,
+              normalizedUrl: target.normalizedUrl,
+              remark: target.remark || `客服${index + 1}`,
+              greeting: "",
+              enabled: true,
+              sortOrder: index + 1,
+            })),
+          },
+        },
+      },
+    });
+
+    return tx.service.findUniqueOrThrow({
+      where: { id: numericId },
+      include: {
+        targets: {
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+  });
+
+  return toServiceRecord(service);
+}
+
+export async function deleteService(id: string, user: CurrentUser) {
+  const numericId = Number(id);
+
+  if (!Number.isInteger(numericId)) {
+    return false;
+  }
+
+  const service = await prisma.service.findFirst({
+    where: {
+      id: numericId,
+      ...(user.role !== "admin" ? { userId: user.id } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!service) {
+    return false;
+  }
+
+  await prisma.service.delete({
+    where: { id: numericId },
+  });
+
+  return true;
 }
 
 export async function markPublished(id: string, snapshots?: { route: unknown; service: unknown }) {

@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import type { Platform } from "@/lib/services/types";
+import type { Platform, ServiceRecord } from "@/lib/services/types";
 
 const maxTargets = 5000;
 const platformOptions: Array<{ value: Platform; label: string }> = [
@@ -44,20 +44,21 @@ const serviceSchema = z.object({
 type ServiceFormValues = z.infer<typeof serviceSchema>;
 type Step = "basic" | "targets" | "rules";
 
-export function ServiceForm() {
+export function ServiceForm({ service }: { service?: ServiceRecord }) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>("basic");
+  const isEditing = Boolean(service);
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
-      name: "",
-      platform: "whatsapp",
-      domain: "go.example.com",
-      accessRule: "random",
-      whatsappEntry: "wa_me",
-      lockIP: false,
-      greeting: "",
-      batchTargets: "",
+      name: service?.name ?? "",
+      platform: service?.platform ?? "whatsapp",
+      domain: service?.domain ?? "go.example.com",
+      accessRule: service?.accessRule ?? "random",
+      whatsappEntry: service?.whatsappEntry ?? "wa_me",
+      lockIP: service?.lockIP ?? false,
+      greeting: service?.globalGreeting ?? "",
+      batchTargets: service?.targets.map((target) => target.url).join("\n") ?? "",
     },
   });
 
@@ -122,8 +123,8 @@ export function ServiceForm() {
       return;
     }
 
-    const response = await fetch("/api/services", {
-      method: "POST",
+    const response = await fetch(isEditing ? `/api/services/${service?.id}` : "/api/services", {
+      method: isEditing ? "PATCH" : "POST",
       headers: {
         "Content-Type": "application/json",
       },
@@ -141,7 +142,7 @@ export function ServiceForm() {
       return;
     }
 
-    toast.success("服务已创建，正在进入详情页。");
+    toast.success(isEditing ? "服务已更新，正在进入详情页。" : "服务已创建，正在进入详情页。");
     router.push(`/services/${payload.data.id}`);
     router.refresh();
   }
@@ -159,7 +160,9 @@ export function ServiceForm() {
             <Card>
               <CardHeader>
                 <CardTitle>基础设置</CardTitle>
-                <CardDescription>配置平台和服务名称，保存后会生成短码。</CardDescription>
+                <CardDescription>
+                  {isEditing ? "修改平台、服务名称和问候语。" : "配置平台和服务名称，保存后会生成短码。"}
+                </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-5 md:grid-cols-2">
                 <input type="hidden" {...form.register("domain")} />
@@ -283,7 +286,7 @@ export function ServiceForm() {
           {isFinalStep ? (
             <Button type="submit">
               <Save className="size-4" />
-              {form.formState.isSubmitting ? "保存中" : "保存并发布"}
+              {form.formState.isSubmitting ? "保存中" : isEditing ? "保存修改" : "保存并发布"}
             </Button>
           ) : (
             <Button type="button" onClick={goNext}>
