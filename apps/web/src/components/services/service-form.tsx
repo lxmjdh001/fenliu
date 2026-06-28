@@ -152,7 +152,7 @@ export function ServiceForm({ service }: { service?: ServiceRecord }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
         <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as Step)}>
           <TabsList>
             <TabsTrigger value="basic">基础设置</TabsTrigger>
@@ -288,7 +288,7 @@ export function ServiceForm({ service }: { service?: ServiceRecord }) {
             保存草稿
           </Button>
           {isFinalStep ? (
-            <Button type="submit">
+            <Button type="button" onClick={form.handleSubmit(onSubmit)}>
               <Save className="size-4" />
               {form.formState.isSubmitting ? "保存中" : isEditing ? "保存修改" : "保存并发布"}
             </Button>
