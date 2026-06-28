@@ -1,10 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Save, Upload } from "lucide-react";
+import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -31,22 +30,13 @@ const serviceSchema = z.object({
   accessRule: z.enum(["random", "sequence"]),
   lockIP: z.boolean(),
   greeting: z.string().optional(),
-  targets: z
-    .array(
-      z.object({
-        remark: z.string().optional(),
-        url: z.string().min(2, "请输入账号或链接"),
-      }),
-    )
-    .min(1)
-    .max(maxTargets),
+  batchTargets: z.string().min(1, "请输入至少一个账号"),
 });
 
 type ServiceFormValues = z.infer<typeof serviceSchema>;
 
 export function ServiceForm() {
   const router = useRouter();
-  const [batchTargets, setBatchTargets] = useState("");
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
@@ -56,56 +46,37 @@ export function ServiceForm() {
       accessRule: "random",
       lockIP: false,
       greeting: "",
-      targets: [{ remark: "客服A", url: "" }],
+      batchTargets: "",
     },
   });
 
-  const { fields, append, replace } = useFieldArray({
-    control: form.control,
-    name: "targets",
-  });
   const selectedAccessRule = useWatch({
     control: form.control,
     name: "accessRule",
   });
 
-  function handleBatchImport() {
-    const imported = parseBatchTargets(batchTargets);
+  async function onSubmit(values: ServiceFormValues) {
+    const targets = parseBatchTargets(values.batchTargets);
 
-    if (!imported.length) {
-      toast.error("没有识别到可导入的账号");
+    if (!targets.length) {
+      toast.error("请输入至少一个账号");
       return;
     }
 
-    const currentTargets = form.getValues("targets");
-    const shouldReplaceBlankDefault =
-      currentTargets.length === 1 && !currentTargets[0]?.url.trim();
-    const nextTotal = shouldReplaceBlankDefault
-      ? imported.length
-      : currentTargets.length + imported.length;
-
-    if (nextTotal > maxTargets) {
+    if (targets.length > maxTargets) {
       toast.error(`最多输入 ${maxTargets} 条账号`);
       return;
     }
 
-    if (shouldReplaceBlankDefault) {
-      replace(imported);
-    } else {
-      append(imported);
-    }
-
-    setBatchTargets("");
-    toast.success(`已导入 ${imported.length} 个账号`);
-  }
-
-  async function onSubmit(values: ServiceFormValues) {
     const response = await fetch("/api/services", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(values),
+      body: JSON.stringify({
+        ...values,
+        targets,
+      }),
     });
 
     const payload = await response.json();
@@ -162,51 +133,18 @@ export function ServiceForm() {
 
           <TabsContent value="targets">
             <Card>
-              <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <CardTitle>账号列表</CardTitle>
-                  <CardDescription>第一版会在保存时自动去重并规范化账号。</CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => append({ remark: "", url: "" })}
-                >
-                  <Plus className="size-4" />
-                  添加账号
-                </Button>
+              <CardHeader>
+                <CardTitle>账号列表</CardTitle>
+                <CardDescription>保存时会自动清理空格、去重并规范化账号。</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid gap-3 rounded-lg border bg-secondary/35 p-3 md:grid-cols-[1fr_auto] md:items-end">
-                  <Field label="批量输入">
-                    <Textarea
-                      className="min-h-28 bg-white"
-                      placeholder="一行一个，请输入手机号/链接，最多输入5000条。"
-                      value={batchTargets}
-                      onChange={(event) => setBatchTargets(event.target.value)}
-                    />
-                  </Field>
-                  <Button type="button" variant="outline" onClick={handleBatchImport}>
-                    <Upload className="size-4" />
-                    导入账号
-                  </Button>
-                </div>
-                {fields.map((field, index) => (
-                  <div key={field.id} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[180px_1fr]">
-                    <Field label="备注">
-                      <Input placeholder="客服备注" {...form.register(`targets.${index}.remark`)} />
-                    </Field>
-                    <Field
-                      label="账号或链接"
-                      error={form.formState.errors.targets?.[index]?.url?.message}
-                    >
-                      <Input
-                        placeholder="手机号、@username、line id 或完整链接"
-                        {...form.register(`targets.${index}.url`)}
-                      />
-                    </Field>
-                  </div>
-                ))}
+              <CardContent>
+                <Field label="批量输入" error={form.formState.errors.batchTargets?.message}>
+                  <Textarea
+                    className="min-h-72 bg-white"
+                    placeholder="一行一个，请输入手机号/链接，最多输入5000条。"
+                    {...form.register("batchTargets")}
+                  />
+                </Field>
               </CardContent>
             </Card>
           </TabsContent>
