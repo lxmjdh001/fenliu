@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Save } from "lucide-react";
+import { Plus, Save, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -42,6 +43,7 @@ type ServiceFormValues = z.infer<typeof serviceSchema>;
 
 export function ServiceForm() {
   const router = useRouter();
+  const [batchTargets, setBatchTargets] = useState("");
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
@@ -55,10 +57,32 @@ export function ServiceForm() {
     },
   });
 
-  const { fields, append } = useFieldArray({
+  const { fields, append, replace } = useFieldArray({
     control: form.control,
     name: "targets",
   });
+
+  function handleBatchImport() {
+    const imported = parseBatchTargets(batchTargets);
+
+    if (!imported.length) {
+      toast.error("没有识别到可导入的账号");
+      return;
+    }
+
+    const currentTargets = form.getValues("targets");
+    const shouldReplaceBlankDefault =
+      currentTargets.length === 1 && !currentTargets[0]?.url.trim();
+
+    if (shouldReplaceBlankDefault) {
+      replace(imported);
+    } else {
+      append(imported);
+    }
+
+    setBatchTargets("");
+    toast.success(`已导入 ${imported.length} 个账号`);
+  }
 
   async function onSubmit(values: ServiceFormValues) {
     const response = await fetch("/api/services", {
@@ -153,7 +177,7 @@ export function ServiceForm() {
 
           <TabsContent value="targets">
             <Card>
-              <CardHeader className="flex-row items-center justify-between">
+              <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
                   <CardTitle>账号列表</CardTitle>
                   <CardDescription>第一版会在保存时自动去重并规范化账号。</CardDescription>
@@ -168,6 +192,20 @@ export function ServiceForm() {
                 </Button>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="grid gap-3 rounded-lg border bg-secondary/35 p-3 md:grid-cols-[1fr_auto] md:items-end">
+                  <Field label="批量输入">
+                    <Textarea
+                      className="min-h-28 bg-white"
+                      placeholder={"一行一个账号\n客服A,60123456789\n客服B @sales_b\nhttps://line.me/ti/p/example"}
+                      value={batchTargets}
+                      onChange={(event) => setBatchTargets(event.target.value)}
+                    />
+                  </Field>
+                  <Button type="button" variant="outline" onClick={handleBatchImport}>
+                    <Upload className="size-4" />
+                    导入账号
+                  </Button>
+                </div>
                 {fields.map((field, index) => (
                   <div key={field.id} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[180px_1fr]">
                     <Field label="备注">
@@ -225,6 +263,60 @@ export function ServiceForm() {
         </div>
     </form>
   );
+}
+
+function parseBatchTargets(input: string): Array<{ remark?: string; url: string }> {
+  const targets = [];
+  const seen = new Set<string>();
+
+  for (const rawLine of input.split(/\r?\n/)) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    const parsed = parseBatchLine(line);
+
+    if (!parsed?.url) {
+      continue;
+    }
+
+    const key = parsed.url.toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    targets.push(parsed);
+  }
+
+  return targets;
+}
+
+function parseBatchLine(line: string): { remark?: string; url: string } | null {
+  const delimited = line.split(/\t|,|，/).map((item) => item.trim()).filter(Boolean);
+
+  if (delimited.length >= 2) {
+    return {
+      remark: delimited.slice(0, -1).join(" "),
+      url: delimited[delimited.length - 1],
+    };
+  }
+
+  const parts = line.split(/\s+/).filter(Boolean);
+
+  if (parts.length === 1) {
+    return {
+      url: parts[0],
+    };
+  }
+
+  return {
+    remark: parts.slice(0, -1).join(" "),
+    url: parts[parts.length - 1],
+  };
 }
 
 function Field({
