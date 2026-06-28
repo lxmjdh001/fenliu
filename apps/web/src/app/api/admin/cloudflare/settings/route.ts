@@ -11,7 +11,7 @@ import {
 
 export async function GET() {
   try {
-    requireAdmin();
+    await requireAdmin();
     const settings = await getCloudflareSettings();
 
     return NextResponse.json({
@@ -24,7 +24,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    requireAdmin();
+    await requireAdmin();
     const body = await request.json();
     const input = saveCloudflareSettingsSchema.parse(body);
     const settings = await saveCloudflareSettings(input);

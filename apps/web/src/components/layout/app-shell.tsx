@@ -17,9 +17,10 @@ import {
   Users,
 } from "lucide-react";
 
+import { LogoutButton } from "@/components/auth/logout-button";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import type { CurrentUser } from "@/lib/auth/current-user";
+import type { CurrentUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -53,10 +54,12 @@ export function AppShell({
           <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Activity className="size-5" />
           </div>
-          <div>
-            <div className="text-sm font-semibold">Fenliu</div>
-            <div className="text-xs text-muted-foreground">Edge Router Console</div>
-          </div>
+            <div>
+              <div className="text-sm font-semibold">Fenliu</div>
+              <div className="text-xs text-muted-foreground">
+                {currentUser.role === "admin" ? "管理员" : currentUser.membershipLevel === "vip" ? "VIP 会员" : "普通会员"}
+              </div>
+            </div>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3">
           <NavSection items={navItems} pathname={pathname} />
@@ -99,6 +102,7 @@ export function AppShell({
               <LifeBuoy className="size-4" />
               工单
             </Button>
+            <LogoutButton />
             <Button size="sm" asChild>
               <Link href="/services/new">新建服务</Link>
             </Button>

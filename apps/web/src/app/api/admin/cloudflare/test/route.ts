@@ -5,7 +5,7 @@ import { testCloudflareConnection } from "@/lib/cloudflare/settings";
 
 export async function POST(request: Request) {
   try {
-    requireAdmin();
+    await requireAdmin();
     const body = await request.json().catch(() => ({}));
     const accounts = await testCloudflareConnection(body.apiToken);
 
