@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -27,7 +28,7 @@ import {
   accessRuleLabels,
   platformLabels,
 } from "@/lib/mock-data";
-import type { ServiceRow } from "@/lib/services/types";
+import type { Platform, ServiceRow } from "@/lib/services/types";
 
 const statusLabel = {
   enabled: "运行中",
@@ -40,6 +41,13 @@ const publishLabel = {
   pending: "等待生效",
   failed: "发布失败",
 };
+
+const platformTabs: Array<{ value: "all" | Platform; label: string }> = [
+  { value: "all", label: "全部" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "telegram", label: "Telegram" },
+  { value: "line", label: "Line" },
+];
 
 const columns: ColumnDef<ServiceRow>[] = [
   {
@@ -143,19 +151,52 @@ export function ServicesTable({ data }: { data: ServiceRow[] }) {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+  const currentPlatform = (table.getColumn("platform")?.getFilterValue() as Platform | undefined) ?? "all";
+  const platformCounts = data.reduce<Record<"all" | Platform, number>>(
+    (counts, service) => {
+      counts.all += 1;
+      counts[service.platform] += 1;
+      return counts;
+    },
+    {
+      all: 0,
+      whatsapp: 0,
+      telegram: 0,
+      line: 0,
+    },
+  );
 
   return (
     <Card>
       <CardContent className="p-0">
-        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="搜索服务名称、短码或域名"
-              value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-              onChange={(event) => table.getColumn("name")?.setFilterValue(event.target.value)}
-            />
+        <div className="flex flex-col gap-3 border-b p-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <Tabs
+              value={currentPlatform}
+              onValueChange={(value) => {
+                table.getColumn("platform")?.setFilterValue(value === "all" ? undefined : value);
+              }}
+            >
+              <TabsList className="h-10 w-full justify-start overflow-x-auto lg:w-auto">
+                {platformTabs.map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value} className="gap-2">
+                    {tab.label}
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      {platformCounts[tab.value]}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <div className="relative w-full lg:w-[360px]">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="搜索服务名称、短码或域名"
+                value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+                onChange={(event) => table.getColumn("name")?.setFilterValue(event.target.value)}
+              />
+            </div>
           </div>
           <Button asChild>
             <Link href="/services/new">新建分流</Link>
