@@ -111,6 +111,10 @@ export function ServiceForm({ service }: { service?: ServiceRecord }) {
   }
 
   async function onSubmit(values: ServiceFormValues) {
+    if (currentStep !== "rules") {
+      return;
+    }
+
     const targets = parseBatchTargets(values.batchTargets);
 
     if (!targets.length) {
