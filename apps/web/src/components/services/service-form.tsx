@@ -71,7 +71,9 @@ export function ServiceForm() {
 
   async function goNext() {
     if (currentStep === "basic") {
-      const isValid = await form.trigger(["name", "platform", "greeting"]);
+      const isValid = await form.trigger(
+        selectedPlatform === "whatsapp" ? ["name", "platform", "greeting"] : ["name", "platform"],
+      );
 
       if (!isValid) {
         return;
@@ -121,6 +123,7 @@ export function ServiceForm() {
       },
       body: JSON.stringify({
         ...values,
+        greeting: values.platform === "whatsapp" ? values.greeting : "",
         targets,
       }),
     });
@@ -167,12 +170,14 @@ export function ServiceForm() {
                     <option value="line">Line</option>
                   </select>
                 </Field>
-                <Field label="全局问候语" className="md:col-span-2">
-                  <Textarea
-                    placeholder="WhatsApp 可自动拼接 text 参数；多条问候语后续会支持按行随机。"
-                    {...form.register("greeting")}
-                  />
-                </Field>
+                {selectedPlatform === "whatsapp" ? (
+                  <Field label="全局问候语" className="md:col-span-2">
+                    <Textarea
+                      placeholder="WhatsApp 可自动拼接 text 参数；多条问候语后续会支持按行随机。"
+                      {...form.register("greeting")}
+                    />
+                  </Field>
+                ) : null}
               </CardContent>
             </Card>
           </TabsContent>

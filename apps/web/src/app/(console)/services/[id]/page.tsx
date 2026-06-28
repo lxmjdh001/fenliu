@@ -99,7 +99,9 @@ export default async function ServiceDetailPage({
             <Info label="IP 锁定" value={record.lockIP ? "开启" : "关闭"} />
             <Info label="短码" value={record.shortCode} />
             <Info label="会员到期" value={new Date(record.membershipExpiresAt).toLocaleString("zh-CN")} />
-            <Info label="问候语" value={record.globalGreeting || "未设置"} />
+            {record.platform === "whatsapp" ? (
+              <Info label="问候语" value={record.globalGreeting || "未设置"} />
+            ) : null}
           </CardContent>
         </Card>
 

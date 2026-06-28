@@ -118,6 +118,7 @@ export function createService(input: CreateServiceInput) {
   const id = String(globalStore.__fenliuNextServiceId!++);
   const shortCode = generateShortCode(parsed.platform);
   const normalizedTargets = dedupeTargets(parsed);
+  const globalGreeting = parsed.platform === "whatsapp" ? (parsed.greeting ?? "") : "";
 
   const service: ServiceRecord = {
     id,
@@ -131,8 +132,8 @@ export function createService(input: CreateServiceInput) {
     whatsappEntry: parsed.whatsappEntry,
     lockIP: parsed.lockIP,
     ipLockGroupId: `group_${id}`,
-    greetingMode: parsed.greeting ? "single" : "none",
-    globalGreeting: parsed.greeting ?? "",
+    greetingMode: globalGreeting ? "single" : "none",
+    globalGreeting,
     greetingPool: [],
     targets: normalizedTargets.map((target, index) => ({
       id: `${id}_${index + 1}`,
